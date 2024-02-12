@@ -1,0 +1,4 @@
+.envrc
+.ignore
+__pycache__/
+playground.*
