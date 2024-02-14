@@ -86,7 +86,7 @@ df_groups = (
     )
     .drop("GroupSize")
 )
-df_groups
+df_groups.head(10)
 
 # %%
 df_train = df_train.join(df_groups, on="Group", how="left")
@@ -110,3 +110,28 @@ plt.show()
 
 # %%
 df_train.get_column("Alone").value_counts(sort=True)
+
+# %%
+# Unique values of `CompanionCount`
+companion_count = df_train.get_column("CompanionCount")
+companion_count.unique()
+
+# %%
+# Visualizing number of companions
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+pos_counts = companion_count.filter(companion_count.gt(0)).to_numpy()
+sns.countplot(x=pos_counts, order=list(range(1, 8)), ax=ax)
+ax.set_title("Number of companions for those who had company")
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+
+plt.show()
+
+# %%
+companion_count.value_counts().sort(by="CompanionCount")
