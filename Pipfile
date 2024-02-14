@@ -11,6 +11,8 @@ matplotlib = "==3.7.4"
 seaborn = "==0.12.2"
 notebook = "*"
 jupytext = "*"
+pyarrow = "==15.0.0"
+hvplot = "*"
 
 [dev-packages]
 
