@@ -209,3 +209,54 @@ pd.crosstab(tmp_df.Transported, tmp_df.HomePlanet)
 
 # %%
 del tmp_df
+
+# %% [markdown]
+# ## `Age`
+
+# %%
+# For now, drop missing values
+age = df_train.get_column("Age").drop_nulls()
+age.head()
+
+# %%
+# Consistency checks
+assert age.ge(0.0).all()
+assert (age - age.cast(pl.UInt32)).eq(0.0).all()
+
+# %%
+# Convert to integer
+age = age.cast(pl.UInt32)
+age.head()
+
+# %%
+# Summary statistics
+age.describe()
+
+# %%
+# Create boxplot
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.boxplot(y=age.to_numpy(), ax=ax)
+ax.set_title("Boxplot of Age")
+ax.set_xticks([])
+ax.set_ylabel("Age")
+
+plt.show()
+
+# %%
+# Histogram and KDE
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.histplot(x=age.to_numpy(), bins=20, stat="density", kde=True, ax=ax)
+ax.set_title("Histogram and KDE for Age")
+ax.set_xlabel("Age")
+
+plt.show()
