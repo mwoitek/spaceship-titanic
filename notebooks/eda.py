@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import cast
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import polars as pl
 import seaborn as sns
 from matplotlib.axes import Axes
@@ -135,3 +136,76 @@ plt.show()
 
 # %%
 companion_count.value_counts().sort(by="CompanionCount")
+
+# %% [markdown]
+# ## `HomePlanet`
+
+# %%
+# Unique values
+home_planet = df_train.get_column("HomePlanet")
+home_planet.unique()
+
+# %%
+# For the moment, ignore missing values
+home_planet = home_planet.drop_nulls()
+
+# %%
+# Visualizing number of passengers by home planet
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.countplot(x=home_planet.to_numpy(), order=["Earth", "Europa", "Mars"], ax=ax)
+ax.set_title("Number of passengers by home planet")
+ax.set_ylabel("Number of passengers")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+
+plt.show()
+
+# %%
+home_planet.value_counts(sort=True)
+
+# %%
+# Relationship with the target variable
+
+# For this, I need a Pandas DataFrame
+tmp_df = (
+    df_train.select(
+        pl.col("HomePlanet"),
+        pl.col("Transported"),
+    )
+    .filter(pl.col("HomePlanet").is_not_null())
+    .to_pandas()
+)
+# tmp_df.head(10)
+
+# %%
+# Visualization
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.countplot(
+    tmp_df,
+    x="HomePlanet",
+    hue="Transported",
+    order=["Earth", "Europa", "Mars"],
+    ax=ax,
+)
+ax.set_title("Relationship between home planet and target")
+ax.set_xlabel("")
+ax.set_ylabel("Number of passengers")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+plt.show()
+
+# %%
+# Unfortunately, this function doesn't exist in Polars
+pd.crosstab(tmp_df.Transported, tmp_df.HomePlanet)
+
+# %%
+del tmp_df
