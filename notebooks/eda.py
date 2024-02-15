@@ -144,12 +144,59 @@ companion_count.value_counts().sort(by="CompanionCount")
 
 # %%
 # Unique values
-home_planet = df_train.get_column("HomePlanet")
-home_planet.unique()
+df_train.get_column("HomePlanet").unique()
+
+# %%
+# Do passengers who belong to the same group also come from the same home
+# planet?
+df_train.select(["Group", "HomePlanet"]).drop_nulls().group_by(by="Group").agg(
+    pl.col("HomePlanet").n_unique().alias("UniquePlanets")
+).get_column("UniquePlanets").eq(1).all()
+
+# %%
+# Fix some of the missing values of HomePlanet
+
+# Some of the rows that can be fixed:
+df_train.filter(pl.col("Group").str.starts_with("044"), pl.col("Alone").not_()).select(
+    ["PassengerId", "HomePlanet"]
+)
+
+# %%
+# Identify rows that can be fixed, and the new values of HomePlanet
+df_1 = df_train.filter(pl.col("HomePlanet").is_null(), pl.col("Alone").not_()).select(
+    ["PassengerId", "Group"]
+)
+df_2 = (
+    df_train.filter(
+        pl.col("HomePlanet").is_not_null(),
+        pl.col("Group").is_in(df_1.get_column("Group").unique()),
+    )
+    .select(["HomePlanet", "Group"])
+    .unique()
+)
+df_3 = df_1.join(df_2, on="Group", how="inner").select(["PassengerId", "HomePlanet"])
+del df_1
+del df_2
+
+# %%
+# Update DataFrame with new values of HomePlanet
+df_train = (
+    df_train.join(df_3, on="PassengerId", how="left")
+    .with_columns(pl.col("HomePlanet_right").fill_null(pl.col("HomePlanet")))
+    .drop("HomePlanet")
+    .rename({"HomePlanet_right": "HomePlanet"})
+)
+del df_3
+
+# %%
+# Quick check
+df_train.filter(pl.col("Group").str.starts_with("044"), pl.col("Alone").not_()).select(
+    ["PassengerId", "HomePlanet"]
+)
 
 # %%
 # For the moment, ignore missing values
-home_planet = home_planet.drop_nulls()
+home_planet = df_train.get_column("HomePlanet").drop_nulls()
 
 # %%
 # Visualizing number of passengers by home planet
