@@ -3,6 +3,7 @@
 # ## Imports
 
 # %%
+import warnings
 from pathlib import Path
 from typing import cast
 
@@ -15,6 +16,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import AutoMinorLocator
 
 # %%
+warnings.simplefilter(action="ignore", category=FutureWarning)
 pl.Config.set_tbl_cols(14)
 
 # %% [markdown]
@@ -260,3 +262,44 @@ ax.set_title("Histogram and KDE for Age")
 ax.set_xlabel("Age")
 
 plt.show()
+
+# %%
+# Relationship with the target variable
+
+# Get Pandas DataFrame
+tmp_df = (
+    df_train.select(pl.col("Age"), pl.col("Transported"))
+    .filter(pl.col("Age").is_not_null())
+    .with_columns(pl.col("Age").cast(pl.UInt32))
+    .to_pandas()
+)
+# tmp_df.head(10)
+
+# %%
+# Create boxplots
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.boxplot(tmp_df, x="Transported", y="Age", ax=ax)
+ax.set_title("Boxplots of Age")
+
+plt.show()
+
+# %%
+# Create histograms
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.histplot(tmp_df, x="Age", hue="Transported", bins=20, stat="density", element="step")
+ax.set_title("Histograms of Age")
+
+plt.show()
+
+# %%
+del tmp_df
