@@ -350,3 +350,39 @@ plt.show()
 
 # %%
 del tmp_df
+
+# %% [markdown]
+# ## `Name`
+
+# %%
+names = df_train.get_column("Name").drop_nulls()
+names.head()
+
+# %%
+# Every name has 2 parts: the first name and 1 surname
+assert names.str.split(" ").list.len().eq(2).all()
+
+# %%
+# Number of unique surnames
+names.str.split(" ").list.last().n_unique()
+
+# %%
+# Add Surname column to DataFrame
+df_surnames = (
+    df_train.filter(pl.col("Name").is_not_null())
+    .select(["PassengerId", "Name"])
+    .with_columns(pl.col("Name").str.split(" ").list.last().alias("Surname"))
+    .drop("Name")
+)
+df_train = df_train.join(df_surnames, on="PassengerId", how="left")
+del df_surnames
+df_train.select(["PassengerId", "Name", "Surname"]).head(10)
+
+# %%
+# Most of the time, passengers who belong to the same group are also part of
+# the same family
+df_train.select(["Group", "Surname"]).drop_nulls().group_by(by="Group").agg(
+    pl.col("Surname").n_unique().alias("UniqueSurnames")
+).with_columns(pl.col("UniqueSurnames").eq(1).alias("OnlyOneSurname")).get_column(
+    "OnlyOneSurname"
+).value_counts(sort=True)
