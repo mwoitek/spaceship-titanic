@@ -1,4 +1,5 @@
 .envrc
 .ignore
+.ipynb_checkpoints/
 __pycache__/
 playground.*
