@@ -1,3 +1,19 @@
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -all
+#     formats: ipynb,py:percent
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.16.1
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
+
 # %% [markdown]
 # # Spaceship Titanic: Exploratory Data Analysis
 # ## Imports
@@ -317,6 +333,75 @@ df_train = (
 del df_cryo
 assert df_train.filter(pl.col("TotalSpent").gt(0.0)).get_column("CryoSleep").not_().all()
 df_train.head(10)
+
+# %%
+# For the moment, ignore missing values that remain
+cryo = df_train.get_column("CryoSleep").drop_nulls()
+
+# %%
+# Visualize number of passengers in cryo sleep
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.countplot(x=cryo.to_numpy(), order=[False, True], ax=ax)
+ax.set_title("In cryo sleep?")
+ax.set_xticklabels(["No", "Yes"])
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+
+plt.show()
+
+# %%
+cryo.value_counts(sort=True)
+
+# %%
+# Relationship between CryoSleep and other variables
+
+# Get Pandas DataFrame
+tmp_df = df_train.select(["CryoSleep", "Alone", "Transported"]).drop_nulls().to_pandas()
+# tmp_df.head(10)
+
+# %%
+# Relationship between CryoSleep and Alone
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.countplot(tmp_df, x="CryoSleep", hue="Alone", order=[False, True], ax=ax)
+ax.set_title("Relationship between CryoSleep and Alone")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+plt.show()
+
+# %%
+pd.crosstab(tmp_df.CryoSleep, tmp_df.Alone)
+
+# %%
+# Relationship between CryoSleep and Transported
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = cast(Figure, fig)
+
+ax = fig.add_subplot()
+ax = cast(Axes, ax)
+
+sns.countplot(tmp_df, x="CryoSleep", hue="Transported", order=[False, True], ax=ax)
+ax.set_title("Relationship between CryoSleep and Transported")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+plt.show()
+
+# %%
+pd.crosstab(tmp_df.CryoSleep, tmp_df.Transported)
+
+# %%
+del tmp_df
 
 # %% [markdown]
 # ## `Age`
