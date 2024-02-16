@@ -404,6 +404,49 @@ pd.crosstab(tmp_df.CryoSleep, tmp_df.Transported)
 del tmp_df
 
 # %% [markdown]
+# ## `Cabin`
+
+# %%
+# Split this feature to create 3 features
+df_cabin = (
+    df_train.select(["PassengerId", "Cabin"])
+    .drop_nulls()
+    .with_columns(pl.col("Cabin").str.split("/").list.to_struct().alias("CabinParts"))
+    .drop("Cabin")
+    .unnest("CabinParts")
+    .rename(
+        {
+            "field_0": "CabinDeck",
+            "field_1": "CabinNum",
+            "field_2": "CabinSide",
+        }
+    )
+    .with_columns(pl.col("CabinNum").str.to_integer(strict=True))
+)
+df_cabin.head(10)
+
+# %%
+# Quick check
+assert df_cabin.get_column("CabinSide").is_in(["P", "S"]).all()
+
+# %%
+# Add new features to DataFrame
+df_train = df_train.join(df_cabin, on="PassengerId", how="left")
+del df_cabin
+df_train.head(10)
+
+# %%
+# Unique values of CabinDeck
+df_train.get_column("CabinDeck").unique()
+
+# %%
+df_train.get_column("CabinDeck").drop_nulls().value_counts().sort(by="CabinDeck")
+
+# %%
+# CabinNum: Number of unique values
+df_train.get_column("CabinNum").drop_nulls().n_unique()
+
+# %% [markdown]
 # ## `Age`
 
 # %%
