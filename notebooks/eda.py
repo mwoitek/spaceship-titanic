@@ -115,6 +115,9 @@ plt.show()
 df_train.get_column("Alone").value_counts(sort=True)
 
 # %%
+# TODO: Relationship with target variable
+
+# %%
 # Unique values of `CompanionCount`
 companion_count = df_train.get_column("CompanionCount")
 companion_count.unique()
@@ -138,6 +141,9 @@ plt.show()
 
 # %%
 companion_count.value_counts().sort(by="CompanionCount")
+
+# %%
+# TODO: Relationship with target variable
 
 # %% [markdown]
 # ## `HomePlanet`
@@ -258,6 +264,59 @@ pd.crosstab(tmp_df.Transported, tmp_df.HomePlanet)
 
 # %%
 del tmp_df
+
+# %% [markdown]
+# ## `CryoSleep`
+
+# %%
+# First, I'm going to do some consistency tests. To do so, I need to know the
+# total amount spent by each passenger:
+df_total = (
+    df_train.select(["CryoSleep", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"])
+    .filter(pl.col("CryoSleep").is_not_null())
+    .with_columns(TotalSpent=pl.sum_horizontal(pl.col(pl.FLOAT_DTYPES)))
+    .select(["CryoSleep", "TotalSpent"])
+)
+df_total.head(10)
+
+# %%
+# Passengers who spent money were NOT in cryo sleep
+assert df_total.filter(pl.col("TotalSpent").gt(0.0)).get_column("CryoSleep").not_().all()
+
+# %%
+# Passengers who were in cryo sleep spent NO MONEY
+assert df_total.filter(pl.col("CryoSleep")).get_column("TotalSpent").eq(0.0).all()
+
+# %%
+# The converse is NOT true: Some passengers who spent no money were awake
+df_total.filter(pl.col("TotalSpent").eq(0.0)).get_column("CryoSleep").value_counts(sort=True)
+
+# %%
+del df_total
+
+# %%
+# Add TotalSpent column to DataFrame
+df_train = df_train.with_columns(
+    TotalSpent=pl.sum_horizontal("RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck")
+)
+df_train.select(["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "TotalSpent"]).head(10)
+
+# %%
+# Fill some missing CryoSleep values based on TotalSpent
+df_cryo = (
+    df_train.filter(pl.col("CryoSleep").is_null(), pl.col("TotalSpent").gt(0.0))
+    .select(["PassengerId", "CryoSleep"])
+    .with_columns(pl.col("CryoSleep").fill_null(False))  # noqa: FBT003
+)
+df_train = (
+    df_train.join(df_cryo, on="PassengerId", how="left")
+    .with_columns(pl.col("CryoSleep_right").fill_null(pl.col("CryoSleep")))
+    .drop("CryoSleep")
+    .rename({"CryoSleep_right": "CryoSleep"})
+)
+del df_cryo
+assert df_train.filter(pl.col("TotalSpent").gt(0.0)).get_column("CryoSleep").not_().all()
+df_train.head(10)
 
 # %% [markdown]
 # ## `Age`
