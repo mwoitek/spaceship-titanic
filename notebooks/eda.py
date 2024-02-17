@@ -21,19 +21,16 @@
 # %%
 import warnings
 from pathlib import Path
-from typing import cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
 import seaborn as sns
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 from matplotlib.ticker import AutoMinorLocator
 
 # %%
-warnings.simplefilter(action="ignore", category=FutureWarning)
 pl.Config.set_tbl_cols(14)
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 # %% [markdown]
 # ## Read data
@@ -114,13 +111,11 @@ df_train.head(10)
 # %%
 # Number of people traveling alone
 fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.countplot(x=df_train.get_column("Alone").to_numpy(), order=[True, False], ax=ax)
 ax.set_title("Traveling alone?")
+ax.set_xticks(ax.get_xticks())  # seems useless but silences a warning
 ax.set_xticklabels(["Yes", "No"])
 ax.set_ylabel("Count")
 ax.yaxis.set_minor_locator(AutoMinorLocator(4))
@@ -131,7 +126,23 @@ plt.show()
 df_train.get_column("Alone").value_counts(sort=True)
 
 # %%
-# TODO: Relationship with target variable
+# Relationship with target variable
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(df_train, x="Alone", hue="Transported", order=[True, False], ax=ax)
+ax.set_title("Relationship between Alone and Transported")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+plt.show()
+
+# %%
+df_crosstab = df_train.select(["Alone", "Transported"]).to_pandas()
+pd.crosstab(df_crosstab.Alone, df_crosstab.Transported)
+
+# %%
+del df_crosstab
 
 # %%
 # Unique values of `CompanionCount`
@@ -141,10 +152,7 @@ companion_count.unique()
 # %%
 # Visualizing number of companions
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 pos_counts = companion_count.filter(companion_count.gt(0)).to_numpy()
 sns.countplot(x=pos_counts, order=list(range(1, 8)), ax=ax)
@@ -169,9 +177,8 @@ companion_count.value_counts().sort(by="CompanionCount")
 df_train.get_column("HomePlanet").unique()
 
 # %%
-# Do passengers who belong to the same group also come from the same home
-# planet?
-df_train.select(["Group", "HomePlanet"]).drop_nulls().group_by(by="Group").agg(
+# Do passengers who belong to the same group also come from the same home planet?
+df_train.select(["Group", "HomePlanet"]).drop_nulls().group_by("Group").agg(
     pl.col("HomePlanet").n_unique().alias("UniquePlanets")
 ).get_column("UniquePlanets").eq(1).all()
 
@@ -223,10 +230,7 @@ home_planet = df_train.get_column("HomePlanet").drop_nulls()
 # %%
 # Visualizing number of passengers by home planet
 fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.countplot(x=home_planet.to_numpy(), order=["Earth", "Europa", "Mars"], ax=ax)
 ax.set_title("Number of passengers by home planet")
@@ -255,10 +259,7 @@ tmp_df = (
 # %%
 # Visualization
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.countplot(
     tmp_df,
@@ -341,13 +342,11 @@ cryo = df_train.get_column("CryoSleep").drop_nulls()
 # %%
 # Visualize number of passengers in cryo sleep
 fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.countplot(x=cryo.to_numpy(), order=[False, True], ax=ax)
 ax.set_title("In cryo sleep?")
+ax.set_xticks(ax.get_xticks())  # seems useless but silences a warning
 ax.set_xticklabels(["No", "Yes"])
 ax.set_ylabel("Count")
 ax.yaxis.set_minor_locator(AutoMinorLocator(4))
@@ -367,10 +366,7 @@ tmp_df = df_train.select(["CryoSleep", "Alone", "Transported"]).drop_nulls().to_
 # %%
 # Relationship between CryoSleep and Alone
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.countplot(tmp_df, x="CryoSleep", hue="Alone", order=[False, True], ax=ax)
 ax.set_title("Relationship between CryoSleep and Alone")
@@ -385,10 +381,7 @@ pd.crosstab(tmp_df.CryoSleep, tmp_df.Alone)
 # %%
 # Relationship between CryoSleep and Transported
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.countplot(tmp_df, x="CryoSleep", hue="Transported", order=[False, True], ax=ax)
 ax.set_title("Relationship between CryoSleep and Transported")
@@ -471,10 +464,7 @@ age.describe()
 # %%
 # Create boxplot
 fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.boxplot(y=age.to_numpy(), ax=ax)
 ax.set_title("Boxplot of Age")
@@ -486,10 +476,7 @@ plt.show()
 # %%
 # Histogram and KDE
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.histplot(x=age.to_numpy(), bins=20, stat="density", kde=True, ax=ax)
 ax.set_title("Histogram and KDE for Age")
@@ -512,10 +499,7 @@ tmp_df = (
 # %%
 # Create boxplots
 fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.boxplot(tmp_df, x="Transported", y="Age", ax=ax)
 ax.set_title("Boxplots of Age")
@@ -525,10 +509,7 @@ plt.show()
 # %%
 # Create histograms
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
-fig = cast(Figure, fig)
-
 ax = fig.add_subplot()
-ax = cast(Axes, ax)
 
 sns.histplot(tmp_df, x="Age", hue="Transported", bins=20, stat="density", element="step")
 ax.set_title("Histograms of Age")
@@ -537,6 +518,12 @@ plt.show()
 
 # %%
 del tmp_df
+
+# %% [markdown]
+# ## `VIP`
+
+# %%
+# TODO
 
 # %% [markdown]
 # ## `Name`
@@ -568,7 +555,7 @@ df_train.select(["PassengerId", "Name", "Surname"]).head(10)
 # %%
 # Most of the time, passengers who belong to the same group are also part of
 # the same family
-df_train.select(["Group", "Surname"]).drop_nulls().group_by(by="Group").agg(
+df_train.select(["Group", "Surname"]).drop_nulls().group_by("Group").agg(
     pl.col("Surname").n_unique().alias("UniqueSurnames")
 ).with_columns(pl.col("UniqueSurnames").eq(1).alias("OnlyOneSurname")).get_column(
     "OnlyOneSurname"
