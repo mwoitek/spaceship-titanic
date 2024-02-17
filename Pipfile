@@ -4,15 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-numpy = "==1.26.3"
-pandas = "==2.2.0"
-polars = "==0.20.5"
-matplotlib = "==3.7.4"
-seaborn = "==0.12.2"
+numpy = "*"
+pandas = "*"
+polars = "*"
+matplotlib = "*"
+seaborn = "*"
 notebook = "*"
 jupytext = "*"
-pyarrow = "==15.0.0"
-hvplot = "*"
+pyarrow = "*"
+statsmodels = "*"
 
 [dev-packages]
 
