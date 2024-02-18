@@ -23,9 +23,11 @@ import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import polars as pl
 import seaborn as sns
+import seaborn.objects as so
 from matplotlib.ticker import AutoMinorLocator
 
 # %%
@@ -167,7 +169,36 @@ plt.show()
 companion_count.value_counts().sort(by="CompanionCount")
 
 # %%
-# TODO: Relationship with target variable
+# Relationship with target variable
+tmp_df = df_train.select(["CompanionCount", "Transported"]).filter(pl.col("CompanionCount").gt(0))
+
+fig = plt.figure(figsize=(8.0, 6.0))
+ax = fig.add_subplot()
+
+p = (
+    so.Plot(tmp_df, x="CompanionCount", color="Transported")
+    .add(so.Bar(), so.Count(), so.Stack())
+    .on(ax)
+    .label(
+        title="Relationship between CompanionCount and Transported",
+        x="Number of companions",
+        y="Count",
+    )
+    .layout(engine="constrained")
+)
+p.show()
+
+# %%
+tmp_df = tmp_df.to_pandas()
+pd.crosstab(
+    tmp_df.Transported,
+    tmp_df.CompanionCount,
+    margins=True,
+    margins_name="Total",
+)
+
+# %%
+del tmp_df
 
 # %% [markdown]
 # ## `HomePlanet`
@@ -316,6 +347,7 @@ del df_total
 df_train = df_train.with_columns(
     TotalSpent=pl.sum_horizontal("RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck")
 )
+assert df_train.get_column("TotalSpent").ge(0.0).all()
 df_train.select(["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "TotalSpent"]).head(10)
 
 # %%
@@ -365,7 +397,7 @@ tmp_df = df_train.select(["CryoSleep", "Alone", "Transported"]).drop_nulls().to_
 
 # %%
 # Relationship between CryoSleep and Alone
-fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
 ax = fig.add_subplot()
 
 sns.countplot(tmp_df, x="CryoSleep", hue="Alone", order=[False, True], ax=ax)
@@ -380,7 +412,7 @@ pd.crosstab(tmp_df.CryoSleep, tmp_df.Alone)
 
 # %%
 # Relationship between CryoSleep and Transported
-fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
 ax = fig.add_subplot()
 
 sns.countplot(tmp_df, x="CryoSleep", hue="Transported", order=[False, True], ax=ax)
@@ -523,7 +555,70 @@ del tmp_df
 # ## `VIP`
 
 # %%
-# TODO
+# Most passengers don't have VIP status
+df_train.get_column("VIP").drop_nulls().value_counts(sort=True)
+
+# %%
+# Number of VIP passengers
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(df_train.select("VIP").drop_nulls(), x="VIP", ax=ax)
+ax.bar_label(ax.containers[0])  # pyright: ignore [reportArgumentType]
+ax.set_title("Number of VIP passengers")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+
+plt.show()
+
+# %%
+# Relationship with target variable
+tmp_df = df_train.select(["VIP", "Transported"]).drop_nulls().to_pandas()
+pd.crosstab(tmp_df.VIP, tmp_df.Transported)
+
+# %%
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(tmp_df, x="VIP", hue="Transported", ax=ax)
+ax.set_title("Relationship between VIP and Transported")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
+
+# %%
+# Most VIP passengers were awake (not in cryo sleep)
+df_train.select(["VIP", "CryoSleep"]).drop_nulls().filter(pl.col("VIP")).get_column("CryoSleep").value_counts(
+    sort=True
+)
+
+# %%
+# Relationship between VIP and TotalSpent
+tmp_df = df_train.select(["VIP", "TotalSpent"]).drop_nulls()
+fig = plt.figure(figsize=(9.0, 6.0), layout="tight")
+
+ax_1 = fig.add_subplot(121)
+sns.boxplot(tmp_df, x="VIP", y="TotalSpent", hue="VIP", ax=ax_1)
+ax_1.set_title("Boxplot of Total Spent")
+ax_1.set_ylabel("Total Spent")
+ax_1.get_legend().remove()
+
+ax_2 = fig.add_subplot(122, sharey=ax_1)
+sns.violinplot(tmp_df, x="VIP", y="TotalSpent", hue="VIP", ax=ax_2)
+ax_2.set_title("Violinplot of Total Spent")
+ax_2.set_ylabel("")
+plt.setp(ax_2.get_yticklabels(), visible=False)
+ax_2.get_legend().remove()
+
+del tmp_df
+fig.suptitle("Relationship between VIP status and total amount spent")
+
+plt.show()
 
 # %% [markdown]
 # ## `Name`
@@ -560,3 +655,10 @@ df_train.select(["Group", "Surname"]).drop_nulls().group_by("Group").agg(
 ).with_columns(pl.col("UniqueSurnames").eq(1).alias("OnlyOneSurname")).get_column(
     "OnlyOneSurname"
 ).value_counts(sort=True)
+
+# %%
+# TODO: Do something interesting with this
+vip_surnames = (
+    df_train.select(["VIP", "Surname"]).drop_nulls().filter(pl.col("VIP")).get_column("Surname").unique()
+)
+vip_surnames.head()
