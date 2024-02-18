@@ -29,6 +29,7 @@ import polars as pl
 import seaborn as sns
 import seaborn.objects as so
 from matplotlib.ticker import AutoMinorLocator
+from statsmodels.graphics.mosaicplot import mosaic
 
 # %%
 pl.Config.set_tbl_cols(14)
@@ -468,8 +469,74 @@ df_train.get_column("CabinDeck").unique()
 df_train.get_column("CabinDeck").drop_nulls().value_counts().sort(by="CabinDeck")
 
 # %%
+# Relationship between CabinDeck and Transported
+
+# Get Pandas DataFrame
+df_mosaic = (
+    df_train.select(["CabinDeck", "Transported"])
+    .drop_nulls()
+    .filter(pl.col("CabinDeck").ne("T"))
+    .sort("CabinDeck")
+    .with_columns(Transported=pl.when(pl.col("Transported")).then(pl.lit("T")).otherwise(pl.lit("F")))
+    .to_pandas()
+)
+df_mosaic.head(10)
+
+# %%
+pd.crosstab(df_mosaic.CabinDeck, df_mosaic.Transported, margins=True, margins_name="Total")
+
+# %%
+# Create mosaic plot
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+mosaic(
+    df_mosaic,
+    ["CabinDeck", "Transported"],
+    title="Relationship between CabinDeck and Transported",
+    labelizer=lambda _: "",
+    ax=ax,
+)
+ax.set_xlabel("CabinDeck")
+ax.set_ylabel("Transported")
+
+del df_mosaic
+plt.show()
+
+# %%
 # CabinNum: Number of unique values
 df_train.get_column("CabinNum").drop_nulls().n_unique()
+
+# %%
+# Relationship between CabinSide and Transported
+tmp_df = df_train.select(["CabinSide", "Transported"]).drop_nulls().to_pandas()
+df_crosstab = pd.crosstab(tmp_df.CabinSide, tmp_df.Transported, margins=True, margins_name="Total")
+del tmp_df
+df_crosstab
+
+# %%
+# Plot passenger count
+target_counts = {
+    "False": df_crosstab.iloc[:-1, 0].to_numpy(),
+    "True": df_crosstab.iloc[:-1, 1].to_numpy(),
+}
+del df_crosstab
+
+width = 0.6
+bottom = np.zeros(2)
+
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+for target, count in target_counts.items():
+    p = ax.bar(("P", "S"), count, width, label=target, bottom=bottom)
+    bottom += count
+    ax.bar_label(p, label_type="center")
+
+ax.set_title("Relationship between CabinSide and Transported")
+ax.legend(title="Transported")
+
+plt.show()
 
 # %% [markdown]
 # ## `Age`
