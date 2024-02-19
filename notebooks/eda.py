@@ -829,6 +829,107 @@ fig.suptitle("Relationship between VIP status and total amount spent")
 plt.show()
 
 # %% [markdown]
+# ## `RoomService`
+
+# %%
+# Fill some missing values based on CryoSleep
+df_1 = (
+    df_train.filter(pl.col("CryoSleep"), pl.col("RoomService").is_null())
+    .select("PassengerId")
+    .with_columns(RoomService=pl.lit(0.0))
+)
+df_train = (
+    df_train.join(df_1, on="PassengerId", how="left")
+    .with_columns(RoomService=pl.col("RoomService_right").fill_null(pl.col("RoomService")))
+    .drop("RoomService_right")
+)
+del df_1
+df_train.head(10)
+
+# %% [markdown]
+# ## `FoodCourt`
+
+# %%
+# Fill some missing values based on CryoSleep
+df_1 = (
+    df_train.filter(pl.col("CryoSleep"), pl.col("FoodCourt").is_null())
+    .select("PassengerId")
+    .with_columns(FoodCourt=pl.lit(0.0))
+)
+df_train = (
+    df_train.join(df_1, on="PassengerId", how="left")
+    .with_columns(FoodCourt=pl.col("FoodCourt_right").fill_null(pl.col("FoodCourt")))
+    .drop("FoodCourt_right")
+)
+del df_1
+df_train.head(10)
+
+# %% [markdown]
+# ## `ShoppingMall`
+
+# %%
+# Fill some missing values based on CryoSleep
+df_1 = (
+    df_train.filter(pl.col("CryoSleep"), pl.col("ShoppingMall").is_null())
+    .select("PassengerId")
+    .with_columns(ShoppingMall=pl.lit(0.0))
+)
+df_train = (
+    df_train.join(df_1, on="PassengerId", how="left")
+    .with_columns(ShoppingMall=pl.col("ShoppingMall_right").fill_null(pl.col("ShoppingMall")))
+    .drop("ShoppingMall_right")
+)
+del df_1
+df_train.head(10)
+
+# %% [markdown]
+# ## `Spa`
+
+# %%
+# Fill some missing values based on CryoSleep
+df_1 = (
+    df_train.filter(pl.col("CryoSleep"), pl.col("Spa").is_null())
+    .select("PassengerId")
+    .with_columns(Spa=pl.lit(0.0))
+)
+df_train = (
+    df_train.join(df_1, on="PassengerId", how="left")
+    .with_columns(Spa=pl.col("Spa_right").fill_null(pl.col("Spa")))
+    .drop("Spa_right")
+)
+del df_1
+df_train.head(10)
+
+# %% [markdown]
+# ## `VRDeck`
+
+# %%
+# Fill some missing values based on CryoSleep
+df_1 = (
+    df_train.filter(pl.col("CryoSleep"), pl.col("VRDeck").is_null())
+    .select("PassengerId")
+    .with_columns(VRDeck=pl.lit(0.0))
+)
+df_train = (
+    df_train.join(df_1, on="PassengerId", how="left")
+    .with_columns(VRDeck=pl.col("VRDeck_right").fill_null(pl.col("VRDeck")))
+    .drop("VRDeck_right")
+)
+del df_1
+df_train.head(10)
+
+# %%
+# Quick check
+assert (
+    df_train.filter(pl.col("CryoSleep"))
+    .select(["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "TotalSpent"])
+    .to_pandas()
+    .eq(0.0)
+    .all()
+    .all()  # pyright: ignore [reportAttributeAccessIssue]
+)
+
+# %% [markdown]
 # ## `Name`
 
 # %%
