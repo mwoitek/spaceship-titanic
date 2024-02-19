@@ -28,6 +28,7 @@ import pandas as pd
 import polars as pl
 import seaborn as sns
 import seaborn.objects as so
+from IPython.display import display
 from matplotlib.ticker import AutoMinorLocator
 from statsmodels.graphics.mosaicplot import mosaic
 
@@ -508,6 +509,28 @@ plt.show()
 df_train.get_column("CabinNum").drop_nulls().n_unique()
 
 # %%
+# Trying to extract something from CabinNum
+# Not sure if the next few cells are useful
+cabin_counts = df_train.get_column("CabinNum").drop_nulls().value_counts()
+cabin_counts.get_column("count").mean()
+
+# %%
+common_nums = cabin_counts.filter(pl.col("count").gt(5)).get_column("CabinNum")
+del cabin_counts
+
+df_train = df_train.with_columns(
+    CommonCabinNum=pl.when(pl.col("CabinNum").is_not_null()).then(pl.col("CabinNum").is_in(common_nums))
+)
+del common_nums
+
+df_train.head(20)
+
+# %%
+tmp_df = df_train.select(["CommonCabinNum", "Transported"]).drop_nulls().to_pandas()
+display(pd.crosstab(tmp_df.CommonCabinNum, tmp_df.Transported, margins=True, margins_name="Total"))
+del tmp_df
+
+# %%
 # Relationship between CabinSide and Transported
 tmp_df = df_train.select(["CabinSide", "Transported"]).drop_nulls().to_pandas()
 df_crosstab = pd.crosstab(tmp_df.CabinSide, tmp_df.Transported, margins=True, margins_name="Total")
@@ -548,9 +571,41 @@ df_train.get_column("Destination").drop_nulls().unique()
 # %%
 # Most of the time, passengers that belong to the same group have the same
 # destination. But sometimes there are 2 or 3 different destinations:
-df_train.select(["Group", "Destination"]).drop_nulls().group_by("Group").agg(
-    pl.col("Destination").n_unique().alias("UniqueDestinations")
-).get_column("UniqueDestinations").value_counts(sort=True)
+df_dest = (
+    df_train.select(["Group", "Destination"])
+    .drop_nulls()
+    .group_by("Group")
+    .agg(pl.col("Destination").n_unique().alias("UniqueDestinations"))
+)
+df_dest.get_column("UniqueDestinations").value_counts(sort=True)
+
+# %%
+# Use Group data to fill some missing Destination values
+groups = df_dest.filter(pl.col("UniqueDestinations").eq(1)).get_column("Group")
+del df_dest
+
+df_1 = df_train.filter(pl.col("Destination").is_null(), pl.col("Group").is_in(groups)).select(
+    ["PassengerId", "Group"]
+)
+df_2 = (
+    df_train.filter(pl.col("Destination").is_not_null(), pl.col("Group").is_in(groups))
+    .select(["Group", "Destination"])
+    .unique()
+)
+df_3 = df_1.join(df_2, on="Group", how="inner").drop("Group")
+
+del groups
+del df_1
+del df_2
+
+df_train = (
+    df_train.join(df_3, on="PassengerId", how="left")
+    .with_columns(Destination=pl.col("Destination_right").fill_null(pl.col("Destination")))
+    .drop("Destination_right")
+)
+del df_3
+
+df_train.head(10)
 
 # %%
 # Number of passengers by destination
@@ -815,3 +870,12 @@ vip_surnames = (
     df_train.select(["VIP", "Surname"]).drop_nulls().filter(pl.col("VIP")).get_column("Surname").unique()
 )
 vip_surnames.head()
+
+# %%
+
+# %%
+df_train.width
+
+# %%
+with pl.Config(tbl_cols=22):
+    display(df_train.null_count())
