@@ -539,6 +539,92 @@ ax.legend(title="Transported")
 plt.show()
 
 # %% [markdown]
+# ## `Destination`
+
+# %%
+# Unique values of Destination
+df_train.get_column("Destination").drop_nulls().unique()
+
+# %%
+# Most of the time, passengers that belong to the same group have the same
+# destination. But sometimes there are 2 or 3 different destinations:
+df_train.select(["Group", "Destination"]).drop_nulls().group_by("Group").agg(
+    pl.col("Destination").n_unique().alias("UniqueDestinations")
+).get_column("UniqueDestinations").value_counts(sort=True)
+
+# %%
+# Number of passengers by destination
+df_train.get_column("Destination").drop_nulls().value_counts(sort=True)
+
+# %%
+# Visualization
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    df_train.select("Destination").drop_nulls(),
+    x="Destination",
+    order=["TRAPPIST-1e", "55 Cancri e", "PSO J318.5-22"],
+    ax=ax,
+)
+ax.bar_label(ax.containers[0])  # pyright: ignore [reportArgumentType]
+ax.set_title("Number of passengers by destination")
+ax.set_xlabel("")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+
+plt.show()
+
+# %%
+# Relationship with target variable
+tmp_df = df_train.select(["Destination", "Transported"]).drop_nulls().to_pandas()
+pd.crosstab(tmp_df.Destination, tmp_df.Transported, margins=True, margins_name="Total")
+
+# %%
+# Visualization
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    tmp_df,
+    x="Destination",
+    hue="Transported",
+    order=["TRAPPIST-1e", "55 Cancri e", "PSO J318.5-22"],
+    ax=ax,
+)
+ax.set_title("Relationship between Destination and Transported")
+ax.set_xlabel("")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
+
+# %%
+# Relationship between Destination and HomePlanet
+df_mosaic = df_train.select(["HomePlanet", "Destination"]).drop_nulls().to_pandas()
+pd.crosstab(df_mosaic.HomePlanet, df_mosaic.Destination, margins=True, margins_name="Total")
+
+# %%
+# Create mosaic plot
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+mosaic(
+    df_mosaic,
+    ["Destination", "HomePlanet"],
+    title="Relationship between Destination and HomePlanet",
+    labelizer=lambda _: "",
+    ax=ax,
+)
+
+del df_mosaic
+plt.show()
+
+# %% [markdown]
 # ## `Age`
 
 # %%
