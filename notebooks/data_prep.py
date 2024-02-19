@@ -43,3 +43,48 @@ df_train.head(10)
 # Test data
 df_test = pd.read_csv(data_dir / "test.csv")
 df_test.head(10)
+
+# %% [markdown]
+# ## New features from `PassengerId`
+
+# %%
+# Group
+df_train["Group"] = df_train.PassengerId.str.split("_", expand=True).iloc[:, 0].astype("category")
+df_test["Group"] = df_test.PassengerId.str.split("_", expand=True).iloc[:, 0].astype("category")
+
+# %%
+# Alone and CompanionCount
+
+# Training data
+df_train = (
+    df_train.join(
+        df_train.groupby(by="Group").PassengerId.count().rename("GroupSize"),
+        on="Group",
+    )
+    .assign(
+        Alone=lambda x: x.GroupSize == 1,
+        CompanionCount=lambda x: x.GroupSize - 1,
+    )
+    .drop(columns="GroupSize")
+)
+
+# %%
+# Test data
+df_test = (
+    df_test.join(
+        df_test.groupby(by="Group").PassengerId.count().rename("GroupSize"),
+        on="Group",
+    )
+    .assign(
+        Alone=lambda x: x.GroupSize == 1,
+        CompanionCount=lambda x: x.GroupSize - 1,
+    )
+    .drop(columns="GroupSize")
+)
+
+# %%
+# Set indexes
+df_train = df_train.set_index("PassengerId", verify_integrity=True)
+df_test = df_test.set_index("PassengerId", verify_integrity=True)
+
+# %%
