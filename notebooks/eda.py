@@ -20,6 +20,7 @@
 
 # %%
 import warnings
+from itertools import product
 from pathlib import Path
 
 import matplotlib as mpl
@@ -32,6 +33,7 @@ import seaborn as sns
 import seaborn.objects as so
 from IPython.display import display
 from matplotlib.ticker import AutoMinorLocator
+from sklearn.preprocessing import KBinsDiscretizer
 from statsmodels.graphics.mosaicplot import mosaic
 
 # %%
@@ -760,6 +762,36 @@ plt.show()
 
 # %%
 del tmp_df
+
+# %%
+# Comparing approaches to Age discretization
+for n_bins, strategy in product([3, 4, 5], ["uniform", "quantile", "kmeans"]):
+    print(f"Number of bins = {n_bins}")
+    print(f"Strategy = {strategy}")
+
+    discretizer = KBinsDiscretizer(n_bins=n_bins, strategy=strategy, encode="ordinal", random_state=333)
+    disc_ages = discretizer.fit_transform(df_train.select("Age").drop_nulls().to_numpy()).flatten()
+
+    print("Bin edges:")
+    print(discretizer.bin_edges_)
+
+    tmp_df = (
+        df_train.filter(pl.col("Age").is_not_null())
+        .select("Transported")
+        .with_columns(pl.Series(name="DiscretizedAge", values=disc_ages, dtype=pl.UInt32))
+    )
+
+    fig = plt.figure(figsize=(10.0, 6.0), layout="tight")
+    ax = fig.add_subplot()
+
+    sns.countplot(tmp_df, x="DiscretizedAge", hue="Transported", ax=ax)
+    ax.set_xlabel("Discretized age")
+    ax.set_ylabel("Count")
+
+    for container in ax.containers:
+        ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+    plt.show()
 
 # %% [markdown]
 # ## `VIP`
