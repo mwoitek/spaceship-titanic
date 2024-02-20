@@ -561,26 +561,24 @@ plt.show()
 df_train.get_column("CabinNum").drop_nulls().n_unique()
 
 # %%
-# Trying to extract something from CabinNum
-# Not sure if the next few cells are useful
-cabin_counts = df_train.get_column("CabinNum").drop_nulls().value_counts()
-cabin_counts.get_column("count").mean()
-
-# %%
-common_nums = cabin_counts.filter(pl.col("count").gt(5)).get_column("CabinNum")
+# Count encoding for CabinNum
+cabin_counts = df_train.get_column("CabinNum").drop_nulls().value_counts().rename({"count": "CabinNumCount"})
+df_train = df_train.join(cabin_counts, on="CabinNum", how="left")
 del cabin_counts
-
-df_train = df_train.with_columns(
-    CommonCabinNum=pl.when(pl.col("CabinNum").is_not_null()).then(pl.col("CabinNum").is_in(common_nums))
-)
-del common_nums
-
-df_train.head(20)
+# df_train.head(10)
 
 # %%
-tmp_df = df_train.select(["CommonCabinNum", "Transported"]).drop_nulls().to_pandas()
-display(pd.crosstab(tmp_df.CommonCabinNum, tmp_df.Transported, margins=True, margins_name="Total"))
-del tmp_df
+# Visualize count encoding
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.violinplot(
+    df_train.select(["CabinNumCount", "Transported"]).drop_nulls(),
+    x="Transported",
+    y="CabinNumCount",
+    ax=ax,
+)
+ax.set_title("Violinplots of CabinNumCount")
+plt.show()
 
 # %%
 # Relationship between CabinSide and Transported
