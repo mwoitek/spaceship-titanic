@@ -22,10 +22,12 @@
 import warnings
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import polars as pl
+import polars.selectors as cs
 import seaborn as sns
 import seaborn.objects as so
 from IPython.display import display
@@ -930,6 +932,36 @@ assert (
 )
 
 # %% [markdown]
+# ## All numeric variables
+
+# %%
+# Correlation
+df_numeric = df_train.select(cs.numeric().exclude("CabinNum")).drop_nulls()
+corr = df_numeric.corr()
+corr
+
+# %%
+# Create heatmap
+fig = plt.figure(figsize=(8.0, 8.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.heatmap(
+    corr,
+    xticklabels=corr.columns,
+    yticklabels=corr.columns,
+    annot=True,
+    cmap=mpl.colormaps["coolwarm"],
+    ax=ax,
+)
+ax.set_title("Heatmap of Correlations")
+
+del corr
+plt.show()
+
+# %%
+del df_numeric
+
+# %% [markdown]
 # ## `Name`
 
 # %%
@@ -975,8 +1007,5 @@ vip_surnames.head()
 # %%
 
 # %%
-df_train.width
-
-# %%
-with pl.Config(tbl_cols=22):
+with pl.Config(tbl_cols=df_train.width):
     display(df_train.null_count())
