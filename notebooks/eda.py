@@ -32,7 +32,7 @@ import polars.selectors as cs
 import seaborn as sns
 import seaborn.objects as so
 from IPython.display import display
-from matplotlib.ticker import AutoMinorLocator
+from matplotlib.ticker import AutoMinorLocator, PercentFormatter
 from sklearn.preprocessing import KBinsDiscretizer
 from statsmodels.graphics.mosaicplot import mosaic
 
@@ -175,6 +175,34 @@ plt.show()
 companion_count.value_counts().sort(by="CompanionCount")
 
 # %%
+# Identifying infrequent counts
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    df_train.select("CompanionCount"),
+    x="CompanionCount",
+    order=list(range(8)),
+    stat="percent",
+    ax=ax,
+)
+ax.axhline(y=5, color="red", linestyle="--")
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Percentage")
+ax.yaxis.set_major_formatter(PercentFormatter())
+ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
+plt.show()
+
+# %%
+# Combine infrequent counts into a single category
+df_train = df_train.with_columns(
+    CompCntReduced=pl.when(pl.col("CompanionCount").gt(2))
+    .then(pl.lit("3+"))
+    .otherwise(pl.col("CompanionCount").cast(pl.String))
+)
+
+# %%
 # Relationship with target variable
 tmp_df = df_train.select(["CompanionCount", "Transported"]).filter(pl.col("CompanionCount").gt(0))
 
@@ -205,6 +233,26 @@ pd.crosstab(
 
 # %%
 del tmp_df
+
+# %%
+# Relationship between CompCntReduced and Transported
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    df_train,
+    x="CompCntReduced",
+    hue="Transported",
+    order=["0", "1", "2", "3+"],
+    ax=ax,
+)
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+plt.show()
 
 # %% [markdown]
 # ## `HomePlanet`
