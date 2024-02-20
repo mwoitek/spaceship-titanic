@@ -23,6 +23,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from IPython.display import display
+from sklearn.preprocessing import OrdinalEncoder
 
 # %%
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -86,5 +88,56 @@ df_test = (
 # Set indexes
 df_train = df_train.set_index("PassengerId", verify_integrity=True)
 df_test = df_test.set_index("PassengerId", verify_integrity=True)
+
+# %% [markdown]
+# ## Impute some missing values of `HomePlanet`
+
+# %%
+# Training data
+df_1 = (
+    df_train.loc[(df_train.Alone == False) & df_train.HomePlanet.notna(), ["Group", "HomePlanet"]]
+    .drop_duplicates()
+    .reset_index(drop=True)
+)
+df_2 = df_train.loc[
+    (df_train.Alone == False) & df_train.Group.isin(df_1.Group) & df_train.HomePlanet.isna(), ["Group"]
+].reset_index(drop=False)
+
+df_3 = df_2.merge(df_1, on="Group").drop(columns="Group").set_index("PassengerId")
+# display(df_3.head(20))
+
+df_train.loc[df_3.index, "HomePlanet"] = df_3.HomePlanet
+# display(df_train.head(20))
+
+del df_1, df_2, df_3
+
+# %%
+# Test data
+df_1 = (
+    df_test.loc[(df_test.Alone == False) & df_test.HomePlanet.notna(), ["Group", "HomePlanet"]]
+    .drop_duplicates()
+    .reset_index(drop=True)
+)
+df_2 = df_test.loc[
+    (df_test.Alone == False) & df_test.Group.isin(df_1.Group) & df_test.HomePlanet.isna(), ["Group"]
+].reset_index(drop=False)
+
+df_3 = df_2.merge(df_1, on="Group").drop(columns="Group").set_index("PassengerId")
+# display(df_3.head(20))
+
+df_test.loc[df_3.index, "HomePlanet"] = df_3.HomePlanet
+# display(df_test.head(20))
+
+del df_1, df_2, df_3
+
+# %%
+# Convert to ordinal integers
+enc = OrdinalEncoder().fit(df_train[["HomePlanet"]])
+# display(enc.categories_)
+
+df_train["HomePlanetOrd"] = enc.transform(df_train[["HomePlanet"]]).flatten()
+df_test["HomePlanetOrd"] = enc.transform(df_test[["HomePlanet"]]).flatten()
+
+del enc
 
 # %%
