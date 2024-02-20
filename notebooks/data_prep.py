@@ -140,4 +140,32 @@ df_test["HomePlanetOrd"] = enc.transform(df_test[["HomePlanet"]]).flatten()
 
 del enc
 
+# %% [markdown]
+# ## More simple data imputation
+
+# %%
+# TotalSpent
+cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+df_train["TotalSpent"] = df_train[cols].agg(np.nansum, axis=1)
+df_test["TotalSpent"] = df_test[cols].agg(np.nansum, axis=1)
+
+# %%
+# Fill some missing CryoSleep values based on TotalSpent
+df_train.loc[df_train.CryoSleep.isna() & df_train.TotalSpent.gt(0.0), "CryoSleep"] = False
+df_test.loc[df_test.CryoSleep.isna() & df_test.TotalSpent.gt(0.0), "CryoSleep"] = False
+
+# %%
+# Passengers who were in cryo sleep spent NO MONEY
+
+# Training data
+df_1 = df_train.loc[df_train.CryoSleep.notna() & (df_train.CryoSleep == True), cols].fillna(0.0)
+df_train.loc[df_1.index, cols] = df_1
+del df_1
+
+# %%
+# Test data
+df_1 = df_test.loc[df_test.CryoSleep.notna() & (df_test.CryoSleep == True), cols].fillna(0.0)
+df_test.loc[df_1.index, cols] = df_1
+del df_1, cols
+
 # %%
