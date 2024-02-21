@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from IPython.display import display
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import KBinsDiscretizer, OrdinalEncoder
 
 # %%
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -88,6 +88,16 @@ df_test = (
 # Set indexes
 df_train = df_train.set_index("PassengerId", verify_integrity=True)
 df_test = df_test.set_index("PassengerId", verify_integrity=True)
+
+# %%
+# Combine infrequent values of CompanionCount
+df_train = df_train.assign(
+    CompCntReduced=df_train.CompanionCount.transform(lambda x: np.where(x > 2, "3+", str(x)))
+).drop(columns="CompanionCount")
+
+df_test = df_test.assign(
+    CompCntReduced=df_test.CompanionCount.transform(lambda x: np.where(x > 2, "3+", str(x)))
+).drop(columns="CompanionCount")
 
 # %% [markdown]
 # ## Impute some missing values of `HomePlanet`
@@ -167,5 +177,59 @@ del df_1
 df_1 = df_test.loc[df_test.CryoSleep.notna() & (df_test.CryoSleep == True), cols].fillna(0.0)
 df_test.loc[df_1.index, cols] = df_1
 del df_1, cols
+
+# %% [markdown]
+# ## New features from `Cabin`
+
+# %%
+# CabinDeck, CabinNum and CabinSide
+df_train = df_train.join(
+    df_train.Cabin.str.split("/", expand=True).rename(columns={0: "CabinDeck", 1: "CabinNum", 2: "CabinSide"})
+).drop(columns="Cabin")
+
+df_test = df_test.join(
+    df_test.Cabin.str.split("/", expand=True).rename(columns={0: "CabinDeck", 1: "CabinNum", 2: "CabinSide"})
+).drop(columns="Cabin")
+
+# %% [markdown]
+# ## Discretize `Age`
+
+# %%
+# Discretize using quantiles and 4 bins
+discretizer = KBinsDiscretizer(n_bins=4, strategy="quantile", encode="ordinal", random_state=333).fit(
+    df_train.loc[df_train.Age.notna(), ["Age"]]
+)
+# display(discretizer.bin_edges_)
+
+df_train["DiscretizedAge4"] = np.nan
+df_train.loc[df_train.Age.notna(), "DiscretizedAge4"] = discretizer.transform(
+    df_train.loc[df_train.Age.notna(), ["Age"]]
+)
+
+df_test["DiscretizedAge4"] = np.nan
+df_test.loc[df_test.Age.notna(), "DiscretizedAge4"] = discretizer.transform(
+    df_test.loc[df_test.Age.notna(), ["Age"]]
+)
+
+# %%
+# Discretize using quantiles and 5 bins
+discretizer = KBinsDiscretizer(n_bins=5, strategy="quantile", encode="ordinal", random_state=333).fit(
+    df_train.loc[df_train.Age.notna(), ["Age"]]
+)
+# display(discretizer.bin_edges_)
+
+df_train["DiscretizedAge5"] = np.nan
+df_train.loc[df_train.Age.notna(), "DiscretizedAge5"] = discretizer.transform(
+    df_train.loc[df_train.Age.notna(), ["Age"]]
+)
+
+df_test["DiscretizedAge5"] = np.nan
+df_test.loc[df_test.Age.notna(), "DiscretizedAge5"] = discretizer.transform(
+    df_test.loc[df_test.Age.notna(), ["Age"]]
+)
+
+# %%
+df_train = df_train.drop(columns="Age")
+df_test = df_test.drop(columns="Age")
 
 # %%
