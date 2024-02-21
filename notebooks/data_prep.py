@@ -191,6 +191,35 @@ df_test = df_test.join(
     df_test.Cabin.str.split("/", expand=True).rename(columns={0: "CabinDeck", 1: "CabinNum", 2: "CabinSide"})
 ).drop(columns="Cabin")
 
+# %%
+# CabinDeck: Combine three categories into one
+df_train.loc[df_train.CabinDeck.notna() & df_train.CabinDeck.isin(["D", "A", "T"]), "CabinDeck"] = "Other"
+df_test.loc[df_test.CabinDeck.notna() & df_test.CabinDeck.isin(["D", "A", "T"]), "CabinDeck"] = "Other"
+
+# %%
+# Convert to ordinal integers
+enc = OrdinalEncoder().fit(df_train[["CabinDeck"]])
+# display(enc.categories_)
+
+df_train["CabinDeckOrd"] = enc.transform(df_train[["CabinDeck"]]).flatten()
+df_test["CabinDeckOrd"] = enc.transform(df_test[["CabinDeck"]]).flatten()
+
+del enc
+
+# %%
+# Convert CabinSide to a boolean feature
+df_train["CabinPort"] = np.nan
+df_train.loc[df_train.CabinSide.notna(), "CabinPort"] = (
+    df_train.loc[df_train.CabinSide.notna(), "CabinSide"] == "P"
+)
+df_train = df_train.drop(columns="CabinSide")
+
+df_test["CabinPort"] = np.nan
+df_test.loc[df_test.CabinSide.notna(), "CabinPort"] = (
+    df_test.loc[df_test.CabinSide.notna(), "CabinSide"] == "P"
+)
+df_test = df_test.drop(columns="CabinSide")
+
 # %% [markdown]
 # ## Discretize `Age`
 
@@ -211,6 +240,8 @@ df_test.loc[df_test.Age.notna(), "DiscretizedAge4"] = discretizer.transform(
     df_test.loc[df_test.Age.notna(), ["Age"]]
 )
 
+del discretizer
+
 # %%
 # Discretize using quantiles and 5 bins
 discretizer = KBinsDiscretizer(n_bins=5, strategy="quantile", encode="ordinal", random_state=333).fit(
@@ -227,6 +258,8 @@ df_test["DiscretizedAge5"] = np.nan
 df_test.loc[df_test.Age.notna(), "DiscretizedAge5"] = discretizer.transform(
     df_test.loc[df_test.Age.notna(), ["Age"]]
 )
+
+del discretizer
 
 # %%
 df_train = df_train.drop(columns="Age")
