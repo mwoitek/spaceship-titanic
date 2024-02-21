@@ -270,6 +270,10 @@ df_train.select(["Group", "HomePlanet"]).drop_nulls().group_by("Group").agg(
 # %%
 # Fix some of the missing values of HomePlanet
 
+# Missing values BEFORE
+df_train.get_column("HomePlanet").is_null().sum()
+
+# %%
 # Some of the rows that can be fixed:
 df_train.filter(pl.col("Group").str.starts_with("044"), pl.col("Alone").not_()).select(
     ["PassengerId", "HomePlanet"]
@@ -307,6 +311,10 @@ del df_3
 df_train.filter(pl.col("Group").str.starts_with("044"), pl.col("Alone").not_()).select(
     ["PassengerId", "HomePlanet"]
 )
+
+# %%
+# Missing values AFTER
+df_train.get_column("HomePlanet").is_null().sum()
 
 # %%
 # For the moment, ignore missing values
@@ -405,6 +413,10 @@ assert df_train.get_column("TotalSpent").ge(0.0).all()
 df_train.select(["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "TotalSpent"]).head(10)
 
 # %%
+# Missing values BEFORE
+df_train.get_column("CryoSleep").is_null().sum()
+
+# %%
 # Fill some missing CryoSleep values based on TotalSpent
 df_cryo = (
     df_train.filter(pl.col("CryoSleep").is_null(), pl.col("TotalSpent").gt(0.0))
@@ -420,6 +432,10 @@ df_train = (
 del df_cryo
 assert df_train.filter(pl.col("TotalSpent").gt(0.0)).get_column("CryoSleep").not_().all()
 df_train.head(10)
+
+# %%
+# Missing values AFTER
+df_train.get_column("CryoSleep").is_null().sum()
 
 # %%
 # For the moment, ignore missing values that remain
@@ -661,6 +677,35 @@ sns.violinplot(
 )
 ax.set_title("Violinplots of CabinNumCount")
 plt.show()
+
+# %%
+# Passengers that belong to the same group were on the same side of the
+# spaceship
+df_train.select(["CabinSide", "Group"]).drop_nulls().group_by("Group").agg(
+    pl.col("CabinSide").n_unique().alias("UniqueSides")
+).get_column("UniqueSides").eq(1).all()
+
+# %%
+# Missing values BEFORE
+df_train.get_column("CabinSide").is_null().sum()
+
+# %%
+# Fill some missing CabinSide values using group data
+df_1 = df_train.select(["CabinSide", "Group"]).drop_nulls().group_by("Group").agg(pl.col("CabinSide").first())
+df_2 = df_train.filter(
+    pl.col("Alone").not_(), pl.col("CabinSide").is_null(), pl.col("Group").is_in(df_1.get_column("Group"))
+).select(["PassengerId", "Group"])
+df_3 = df_2.join(df_1, on="Group", how="inner").drop("Group")
+df_train = (
+    df_train.join(df_3, on="PassengerId", how="left")
+    .with_columns(CabinSide=pl.col("CabinSide_right").fill_null(pl.col("CabinSide")))
+    .drop("CabinSide_right")
+)
+del df_1, df_2, df_3
+
+# %%
+# Missing values AFTER
+df_train.get_column("CabinSide").is_null().sum()
 
 # %%
 # Relationship between CabinSide and Transported
