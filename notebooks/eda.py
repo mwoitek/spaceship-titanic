@@ -519,7 +519,27 @@ df_train.head(10)
 df_train.get_column("CabinDeck").unique()
 
 # %%
-df_train.get_column("CabinDeck").drop_nulls().value_counts().sort(by="CabinDeck")
+df_train.get_column("CabinDeck").drop_nulls().value_counts(sort=True)
+
+# %%
+# Identify infrequent categories
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    df_train.select("CabinDeck").drop_nulls(),
+    x="CabinDeck",
+    order=["F", "G", "E", "B", "C", "D", "A", "T"],
+    stat="percent",
+    ax=ax,
+)
+ax.axhline(y=5, color="red", linestyle="--")
+ax.set_xlabel("Deck")
+ax.set_ylabel("Percentage")
+ax.yaxis.set_major_formatter(PercentFormatter())
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+plt.show()
 
 # %%
 # Relationship between CabinDeck and Transported
@@ -554,6 +574,68 @@ ax.set_xlabel("CabinDeck")
 ax.set_ylabel("Transported")
 
 del df_mosaic
+plt.show()
+
+# %%
+# Combine two categories into one
+tmp_df = (
+    df_train.select(["CabinDeck", "Transported"])
+    .drop_nulls()
+    .with_columns(
+        CabinDeck=pl.when(pl.col("CabinDeck").is_in(["A", "T"]))
+        .then(pl.lit("Other"))
+        .otherwise(pl.col("CabinDeck"))
+    )
+)
+
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    tmp_df,
+    x="CabinDeck",
+    hue="Transported",
+    order=["F", "G", "E", "B", "C", "D", "Other"],
+    ax=ax,
+)
+ax.set_xlabel("Deck")
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
+
+# %%
+# Combine three categories into one
+tmp_df = (
+    df_train.select(["CabinDeck", "Transported"])
+    .drop_nulls()
+    .with_columns(
+        CabinDeck=pl.when(pl.col("CabinDeck").is_in(["D", "A", "T"]))
+        .then(pl.lit("Other"))
+        .otherwise(pl.col("CabinDeck"))
+    )
+)
+
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(
+    tmp_df,
+    x="CabinDeck",
+    hue="Transported",
+    order=["F", "G", "E", "B", "C", "Other"],
+    ax=ax,
+)
+ax.set_xlabel("Deck")
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
 plt.show()
 
 # %%
