@@ -1039,6 +1039,10 @@ plt.show()
 # ## `RoomService`
 
 # %%
+# Missing values BEFORE
+df_train.get_column("RoomService").is_null().sum()
+
+# %%
 # Fill some missing values based on CryoSleep
 df_1 = (
     df_train.filter(pl.col("CryoSleep"), pl.col("RoomService").is_null())
@@ -1052,6 +1056,39 @@ df_train = (
 )
 del df_1
 df_train.head(10)
+
+# %%
+# Missing values AFTER
+df_train.get_column("RoomService").is_null().sum()
+
+# %%
+# Summary statistics
+df_train.get_column("RoomService").drop_nulls().describe()
+
+# %%
+# Clearly, this feature is dominated by zeros
+df_train.get_column("RoomService").drop_nulls().eq(0.0).rename("EqualToZero").value_counts(sort=True)
+
+# %%
+# Derive a binary feature from RoomService
+tmp_df = (
+    df_train.select(["RoomService", "Transported"])
+    .drop_nulls()
+    .with_columns(Spent=pl.col("RoomService").gt(0.0))
+    .drop("RoomService")
+)
+
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(tmp_df, x="Spent", hue="Transported", ax=ax)
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
 
 # %% [markdown]
 # ## `FoodCourt`
