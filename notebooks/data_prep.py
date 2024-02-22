@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from IPython.display import display
-from sklearn.preprocessing import KBinsDiscretizer, OrdinalEncoder
+from sklearn.preprocessing import KBinsDiscretizer, OrdinalEncoder, PowerTransformer
 
 # %%
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -213,7 +213,34 @@ print(f"Test data: {df_test.CryoSleep.isna().sum()}")
 # Passengers who were in cryo sleep spent NO MONEY
 assert df_train.loc[df_train.CryoSleep.notna() & (df_train.CryoSleep == True), cols].eq(0.0).all(axis=None)
 assert df_test.loc[df_test.CryoSleep.notna() & (df_test.CryoSleep == True), cols].eq(0.0).all(axis=None)
+
+# %% [markdown]
+# ## New features from "money variables"
+
+# %%
+# Original money variables will be replaced with binary features. They indicate
+# when the original variables were strictly positive.
+df_train = df_train.join(df_train[cols].gt(0.0).rename(columns={col: f"Pos{col}" for col in cols})).drop(
+    columns=cols
+)
+df_test = df_test.join(df_test[cols].gt(0.0).rename(columns={col: f"Pos{col}" for col in cols})).drop(
+    columns=cols
+)
 del cols
+
+# %%
+# Power transformation of TotalSpent
+transformer = PowerTransformer().fit(df_train[["TotalSpent"]])
+print(transformer.lambdas_[0])
+
+# %%
+df_train = df_train.assign(PTTotalSpent=transformer.transform(df_train[["TotalSpent"]]).flatten()).drop(
+    columns="TotalSpent"
+)
+df_test = df_test.assign(PTTotalSpent=transformer.transform(df_test[["TotalSpent"]]).flatten()).drop(
+    columns="TotalSpent"
+)
+del transformer
 
 # %% [markdown]
 # ## New features from `Cabin`
