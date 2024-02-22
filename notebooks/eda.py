@@ -33,7 +33,7 @@ import seaborn as sns
 import seaborn.objects as so
 from IPython.display import display
 from matplotlib.ticker import AutoMinorLocator, PercentFormatter
-from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.preprocessing import KBinsDiscretizer, PowerTransformer
 from statsmodels.graphics.mosaicplot import mosaic
 
 # %%
@@ -499,6 +499,54 @@ pd.crosstab(tmp_df.CryoSleep, tmp_df.Transported)
 del tmp_df
 
 # %% [markdown]
+# ## `TotalSpent`
+
+# %%
+# Summary statistics
+df_train.get_column("TotalSpent").describe()
+
+# %%
+# Power transformation of TotalSpent
+pt_total_spent = PowerTransformer().fit_transform(df_train.select("TotalSpent").to_numpy()).flatten()
+
+# %%
+# Check that new feature is standardized
+print(np.mean(pt_total_spent))
+print(np.var(pt_total_spent))
+
+# %%
+# Visualize distribution of new feature
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.histplot(x=pt_total_spent, bins=10, stat="density", kde=True, ax=ax)
+ax.set_xlabel("Power-Transformed Total Spent")
+plt.show()
+
+# %%
+# Relationship with target variable
+tmp_df = df_train.select("Transported").with_columns(
+    pl.Series(name="PTTotalSpent", values=pt_total_spent, dtype=pl.Float64)
+)
+del pt_total_spent
+
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.histplot(
+    tmp_df,
+    x="PTTotalSpent",
+    hue="Transported",
+    bins=10,
+    stat="density",
+    element="step",
+    ax=ax,
+)
+ax.set_xlabel("Power-Transformed Total Spent")
+
+del tmp_df
+plt.show()
+
+# %% [markdown]
 # ## `Cabin`
 
 # %%
@@ -928,7 +976,15 @@ plt.show()
 fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
 ax = fig.add_subplot()
 
-sns.histplot(tmp_df, x="Age", hue="Transported", bins=20, stat="density", element="step")
+sns.histplot(
+    tmp_df,
+    x="Age",
+    hue="Transported",
+    bins=20,
+    stat="density",
+    element="step",
+    ax=ax,
+)
 ax.set_title("Histograms of Age")
 
 plt.show()
