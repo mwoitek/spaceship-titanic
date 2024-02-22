@@ -103,6 +103,11 @@ df_test = df_test.assign(
 # ## Impute some missing values of `HomePlanet`
 
 # %%
+# Number of missing values BEFORE
+print(f"Training data: {df_train.HomePlanet.isna().sum()}")
+print(f"Test data: {df_test.HomePlanet.isna().sum()}")
+
+# %%
 # Training data
 df_1 = (
     df_train.loc[(df_train.Alone == False) & df_train.HomePlanet.notna(), ["Group", "HomePlanet"]]
@@ -141,6 +146,11 @@ df_test.loc[df_3.index, "HomePlanet"] = df_3.HomePlanet
 del df_1, df_2, df_3
 
 # %%
+# Number of missing values AFTER
+print(f"Training data: {df_train.HomePlanet.isna().sum()}")
+print(f"Test data: {df_test.HomePlanet.isna().sum()}")
+
+# %%
 # Convert to ordinal integers
 enc = OrdinalEncoder().fit(df_train[["HomePlanet"]])
 # display(enc.categories_)
@@ -150,33 +160,60 @@ df_test["HomePlanetOrd"] = enc.transform(df_test[["HomePlanet"]]).flatten()
 
 del enc
 
+# %%
+# Consistency checks
+assert df_train.loc[df_train.HomePlanet.isna(), "HomePlanetOrd"].isna().all()
+assert df_train.loc[df_train.HomePlanet.notna(), "HomePlanetOrd"].notna().all()
+
+# %%
+assert df_test.loc[df_test.HomePlanet.isna(), "HomePlanetOrd"].isna().all()
+assert df_test.loc[df_test.HomePlanet.notna(), "HomePlanetOrd"].notna().all()
+
 # %% [markdown]
 # ## More simple data imputation
 
 # %%
-# TotalSpent
+# The "money features" are dominated by zeros. Then it's reasonable to fill all
+# of their missing values with zero.
 cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
-df_train["TotalSpent"] = df_train[cols].agg(np.nansum, axis=1)
-df_test["TotalSpent"] = df_test[cols].agg(np.nansum, axis=1)
+
+# Number of missing values BEFORE
+print("Training data:")
+display(df_train[cols].isna().sum())
+
+print("Test data:")
+display(df_test[cols].isna().sum())
+
+# %%
+df_train.loc[:, cols] = df_train[cols].fillna(0.0)
+df_test.loc[:, cols] = df_test[cols].fillna(0.0)
+
+# %%
+# TotalSpent
+df_train["TotalSpent"] = df_train[cols].agg("sum", axis=1)
+df_test["TotalSpent"] = df_test[cols].agg("sum", axis=1)
 
 # %%
 # Fill some missing CryoSleep values based on TotalSpent
+
+# Number of missing values BEFORE
+print(f"Training data: {df_train.CryoSleep.isna().sum()}")
+print(f"Test data: {df_test.CryoSleep.isna().sum()}")
+
+# %%
 df_train.loc[df_train.CryoSleep.isna() & df_train.TotalSpent.gt(0.0), "CryoSleep"] = False
 df_test.loc[df_test.CryoSleep.isna() & df_test.TotalSpent.gt(0.0), "CryoSleep"] = False
 
 # %%
-# Passengers who were in cryo sleep spent NO MONEY
-
-# Training data
-df_1 = df_train.loc[df_train.CryoSleep.notna() & (df_train.CryoSleep == True), cols].fillna(0.0)
-df_train.loc[df_1.index, cols] = df_1
-del df_1
+# Number of missing values AFTER
+print(f"Training data: {df_train.CryoSleep.isna().sum()}")
+print(f"Test data: {df_test.CryoSleep.isna().sum()}")
 
 # %%
-# Test data
-df_1 = df_test.loc[df_test.CryoSleep.notna() & (df_test.CryoSleep == True), cols].fillna(0.0)
-df_test.loc[df_1.index, cols] = df_1
-del df_1, cols
+# Passengers who were in cryo sleep spent NO MONEY
+assert df_train.loc[df_train.CryoSleep.notna() & (df_train.CryoSleep == True), cols].eq(0.0).all(axis=None)
+assert df_test.loc[df_test.CryoSleep.notna() & (df_test.CryoSleep == True), cols].eq(0.0).all(axis=None)
+del cols
 
 # %% [markdown]
 # ## New features from `Cabin`
