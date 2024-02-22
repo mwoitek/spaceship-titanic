@@ -1126,6 +1126,23 @@ df_train.get_column("RoomService").drop_nulls().describe()
 df_train.get_column("RoomService").drop_nulls().eq(0.0).rename("EqualToZero").value_counts(sort=True)
 
 # %%
+# Power transformation of RoomService
+pt_room_service = (
+    PowerTransformer().fit_transform(df_train.select("RoomService").drop_nulls().to_numpy()).flatten()
+)
+
+# %%
+# Visualize distribution of new feature
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.histplot(x=pt_room_service, bins=10, ax=ax)
+ax.set_xlabel("Power-Transformed Room Service")
+plt.show()
+
+# %%
+del pt_room_service
+
+# %%
 # Derive a binary feature from RoomService
 tmp_df = (
     df_train.select(["RoomService", "Transported"])
@@ -1150,6 +1167,10 @@ plt.show()
 # ## `FoodCourt`
 
 # %%
+# Missing values BEFORE
+df_train.get_column("FoodCourt").is_null().sum()
+
+# %%
 # Fill some missing values based on CryoSleep
 df_1 = (
     df_train.filter(pl.col("CryoSleep"), pl.col("FoodCourt").is_null())
@@ -1164,8 +1185,58 @@ df_train = (
 del df_1
 df_train.head(10)
 
+# %%
+# Missing values AFTER
+df_train.get_column("FoodCourt").is_null().sum()
+
+# %%
+# Summary statistics
+df_train.get_column("FoodCourt").drop_nulls().describe()
+
+# %%
+# Power transformation of FoodCourt
+pt_food_court = (
+    PowerTransformer().fit_transform(df_train.select("FoodCourt").drop_nulls().to_numpy()).flatten()
+)
+
+# %%
+# Visualize distribution of new feature
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.histplot(x=pt_food_court, bins=10, ax=ax)
+ax.set_xlabel("Power-Transformed Food Court")
+plt.show()
+
+# %%
+del pt_food_court
+
+# %%
+# Derive a binary feature from FoodCourt
+tmp_df = (
+    df_train.select(["FoodCourt", "Transported"])
+    .drop_nulls()
+    .with_columns(Spent=pl.col("FoodCourt").gt(0.0))
+    .drop("FoodCourt")
+)
+
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(tmp_df, x="Spent", hue="Transported", ax=ax)
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
+
 # %% [markdown]
 # ## `ShoppingMall`
+
+# %%
+# Missing values BEFORE
+df_train.get_column("ShoppingMall").is_null().sum()
 
 # %%
 # Fill some missing values based on CryoSleep
@@ -1182,8 +1253,58 @@ df_train = (
 del df_1
 df_train.head(10)
 
+# %%
+# Missing values AFTER
+df_train.get_column("ShoppingMall").is_null().sum()
+
+# %%
+# Summary statistics
+df_train.get_column("ShoppingMall").drop_nulls().describe()
+
+# %%
+# Power transformation of ShoppingMall
+pt_shopping_mall = (
+    PowerTransformer().fit_transform(df_train.select("ShoppingMall").drop_nulls().to_numpy()).flatten()
+)
+
+# %%
+# Visualize distribution of new feature
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.histplot(x=pt_shopping_mall, bins=10, ax=ax)
+ax.set_xlabel("Power-Transformed Shopping Mall")
+plt.show()
+
+# %%
+del pt_shopping_mall
+
+# %%
+# Derive a binary feature from ShoppingMall
+tmp_df = (
+    df_train.select(["ShoppingMall", "Transported"])
+    .drop_nulls()
+    .with_columns(Spent=pl.col("ShoppingMall").gt(0.0))
+    .drop("ShoppingMall")
+)
+
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(tmp_df, x="Spent", hue="Transported", ax=ax)
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
+
 # %% [markdown]
 # ## `Spa`
+
+# %%
+# Missing values BEFORE
+df_train.get_column("Spa").is_null().sum()
 
 # %%
 # Fill some missing values based on CryoSleep
@@ -1200,8 +1321,53 @@ df_train = (
 del df_1
 df_train.head(10)
 
+# %%
+# Missing values AFTER
+df_train.get_column("Spa").is_null().sum()
+
+# %%
+# Summary statistics
+df_train.get_column("Spa").drop_nulls().describe()
+
+# %%
+# Power transformation of Spa
+pt_spa = PowerTransformer().fit_transform(df_train.select("Spa").drop_nulls().to_numpy()).flatten()
+
+# %%
+# Visualize distribution of new feature
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.histplot(x=pt_spa, bins=10, ax=ax)
+ax.set_xlabel("Power-Transformed Spa")
+plt.show()
+
+# %%
+del pt_spa
+
+# %%
+# Derive a binary feature from Spa
+tmp_df = (
+    df_train.select(["Spa", "Transported"]).drop_nulls().with_columns(Spent=pl.col("Spa").gt(0.0)).drop("Spa")
+)
+
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(tmp_df, x="Spent", hue="Transported", ax=ax)
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
+
 # %% [markdown]
 # ## `VRDeck`
+
+# %%
+# Missing values BEFORE
+df_train.get_column("VRDeck").is_null().sum()
 
 # %%
 # Fill some missing values based on CryoSleep
@@ -1219,6 +1385,10 @@ del df_1
 df_train.head(10)
 
 # %%
+# Missing values AFTER
+df_train.get_column("VRDeck").is_null().sum()
+
+# %%
 # Quick check
 assert (
     df_train.filter(pl.col("CryoSleep"))
@@ -1228,6 +1398,46 @@ assert (
     .all()
     .all()  # pyright: ignore [reportAttributeAccessIssue]
 )
+
+# %%
+# Summary statistics
+df_train.get_column("VRDeck").drop_nulls().describe()
+
+# %%
+# Power transformation of VRDeck
+pt_vr_deck = PowerTransformer().fit_transform(df_train.select("VRDeck").drop_nulls().to_numpy()).flatten()
+
+# %%
+# Visualize distribution of new feature
+fig = plt.figure(figsize=(8.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.histplot(x=pt_vr_deck, bins=10, ax=ax)
+ax.set_xlabel("Power-Transformed VR Deck")
+plt.show()
+
+# %%
+del pt_vr_deck
+
+# %%
+# Derive a binary feature from VRDeck
+tmp_df = (
+    df_train.select(["VRDeck", "Transported"])
+    .drop_nulls()
+    .with_columns(Spent=pl.col("VRDeck").gt(0.0))
+    .drop("VRDeck")
+)
+
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+
+sns.countplot(tmp_df, x="Spent", hue="Transported", ax=ax)
+ax.set_ylabel("Count")
+
+for container in ax.containers:
+    ax.bar_label(container)  # pyright: ignore [reportArgumentType]
+
+del tmp_df
+plt.show()
 
 # %% [markdown]
 # ## All numeric variables
