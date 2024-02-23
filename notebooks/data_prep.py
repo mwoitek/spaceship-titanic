@@ -271,6 +271,60 @@ df_test["CabinDeckOrd"] = enc.transform(df_test[["CabinDeck"]]).flatten()
 del enc
 
 # %%
+# Consistency checks
+assert df_train.loc[df_train.CabinDeck.isna(), "CabinDeckOrd"].isna().all()
+assert df_train.loc[df_train.CabinDeck.notna(), "CabinDeckOrd"].notna().all()
+
+# %%
+assert df_test.loc[df_test.CabinDeck.isna(), "CabinDeckOrd"].isna().all()
+assert df_test.loc[df_test.CabinDeck.notna(), "CabinDeckOrd"].notna().all()
+
+# %%
+df_train = df_train.drop(columns="CabinDeck")
+df_test = df_test.drop(columns="CabinDeck")
+
+# %%
+# Fill some missing CabinSide values using group data
+# Passengers that belong to the same group were on the same side of the spaceship
+
+# Number of missing values BEFORE
+print(f"Training data: {df_train.CabinSide.isna().sum()}")
+print(f"Test data: {df_test.CabinSide.isna().sum()}")
+
+# %%
+# Training data
+df_1 = (
+    df_train.loc[(df_train.Alone == False) & df_train.CabinSide.notna(), ["CabinSide", "Group"]]
+    .groupby("Group", observed=True)
+    .CabinSide.first()
+    .to_frame()
+    .reset_index(drop=False)
+)
+df_2 = df_train.loc[(df_train.Alone == False) & df_train.CabinSide.isna(), ["Group"]].reset_index(drop=False)
+df_3 = df_2.merge(df_1, on="Group").drop(columns="Group").set_index("PassengerId")
+df_train.loc[df_3.index, "CabinSide"] = df_3.CabinSide
+del df_1, df_2, df_3
+
+# %%
+# Test data
+df_1 = (
+    df_test.loc[(df_test.Alone == False) & df_test.CabinSide.notna(), ["CabinSide", "Group"]]
+    .groupby("Group", observed=True)
+    .CabinSide.first()
+    .to_frame()
+    .reset_index(drop=False)
+)
+df_2 = df_test.loc[(df_test.Alone == False) & df_test.CabinSide.isna(), ["Group"]].reset_index(drop=False)
+df_3 = df_2.merge(df_1, on="Group").drop(columns="Group").set_index("PassengerId")
+df_test.loc[df_3.index, "CabinSide"] = df_3.CabinSide
+del df_1, df_2, df_3
+
+# %%
+# Number of missing values AFTER
+print(f"Training data: {df_train.CabinSide.isna().sum()}")
+print(f"Test data: {df_test.CabinSide.isna().sum()}")
+
+# %%
 # Convert CabinSide to a boolean feature
 df_train["CabinPort"] = np.nan
 df_train.loc[df_train.CabinSide.notna(), "CabinPort"] = (
@@ -328,5 +382,3 @@ del discretizer
 # %%
 df_train = df_train.drop(columns="Age")
 df_test = df_test.drop(columns="Age")
-
-# %%
