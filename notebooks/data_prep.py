@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from IPython.display import display
+from pandas.testing import assert_frame_equal
 from sklearn.preprocessing import KBinsDiscretizer, OrdinalEncoder, PowerTransformer
 
 # %%
@@ -103,6 +104,12 @@ df_test = df_test.assign(
 # ## Impute some missing values of `HomePlanet`
 
 # %%
+# Passengers who belong to the same group also come from the same home planet
+df_test.loc[df_test.HomePlanet.notna(), ["Group", "HomePlanet"]].groupby(
+    "Group", observed=True
+).HomePlanet.nunique().eq(1).all()
+
+# %%
 # Number of missing values BEFORE
 print(f"Training data: {df_train.HomePlanet.isna().sum()}")
 print(f"Test data: {df_test.HomePlanet.isna().sum()}")
@@ -144,6 +151,86 @@ df_test.loc[df_3.index, "HomePlanet"] = df_3.HomePlanet
 # display(df_test.head(20))
 
 del df_1, df_2, df_3
+
+# %%
+# Number of missing values AFTER
+print(f"Training data: {df_train.HomePlanet.isna().sum()}")
+print(f"Test data: {df_test.HomePlanet.isna().sum()}")
+
+# %% [markdown]
+# ## Using the `Name` column
+
+# %%
+# Add Surname column
+df_train = df_train.assign(Surname=df_train.Name.str.split(" ", expand=True).iloc[:, 1]).drop(columns="Name")
+df_test = df_test.assign(Surname=df_test.Name.str.split(" ", expand=True).iloc[:, 1]).drop(columns="Name")
+
+# %%
+# Passengers with the same surname are from the same planet
+df_test[["Surname", "HomePlanet"]].dropna().groupby("Surname").HomePlanet.nunique().eq(1).all()
+
+# %%
+# Use Surname to fill more missing HomePlanet values
+
+# Number of missing values BEFORE
+print(f"Training data: {df_train.HomePlanet.isna().sum()}")
+print(f"Test data: {df_test.HomePlanet.isna().sum()}")
+
+# %%
+# Training data
+df_sur_1 = (
+    df_train[["Surname", "HomePlanet"]]
+    .dropna()
+    .groupby("Surname")
+    .HomePlanet.first()
+    .to_frame()
+    .reset_index(drop=False)
+)
+
+# %%
+df_1 = df_train.loc[
+    df_train.Surname.notna() & df_train.Surname.isin(df_sur_1.Surname) & df_train.HomePlanet.isna(),
+    ["Surname"],
+].reset_index(drop=False)
+df_2 = df_1.merge(df_sur_1, on="Surname").drop(columns="Surname").set_index("PassengerId")
+df_train.loc[df_2.index, "HomePlanet"] = df_2.HomePlanet
+del df_1, df_2
+
+# %%
+# Test data
+df_sur_2 = (
+    df_test[["Surname", "HomePlanet"]]
+    .dropna()
+    .groupby("Surname")
+    .HomePlanet.first()
+    .to_frame()
+    .reset_index(drop=False)
+)
+
+# %%
+# Consistency check
+assert_frame_equal(
+    df_sur_1.loc[df_sur_1.Surname.isin(df_sur_2.Surname), :].sort_values("Surname").reset_index(drop=True),
+    df_sur_2.loc[df_sur_2.Surname.isin(df_sur_1.Surname), :].sort_values("Surname").reset_index(drop=True),
+)
+
+# %%
+# To fix test data, I'll also use some training data. Combine all relevant data:
+df_sur = pd.concat(
+    [df_sur_1, df_sur_2.loc[~df_sur_2.Surname.isin(df_sur_1.Surname), :]],
+    ignore_index=True,
+)
+del df_sur_1, df_sur_2
+assert df_sur.Surname.nunique() == df_sur.shape[0]
+
+# %%
+df_1 = df_test.loc[
+    df_test.Surname.notna() & df_test.Surname.isin(df_sur.Surname) & df_test.HomePlanet.isna(),
+    ["Surname"],
+].reset_index(drop=False)
+df_2 = df_1.merge(df_sur, on="Surname").drop(columns="Surname").set_index("PassengerId")
+df_test.loc[df_2.index, "HomePlanet"] = df_2.HomePlanet
+del df_1, df_2, df_sur
 
 # %%
 # Number of missing values AFTER
@@ -382,3 +469,17 @@ del discretizer
 # %%
 df_train = df_train.drop(columns="Age")
 df_test = df_test.drop(columns="Age")
+
+# %%
+
+# %%
+df_train.info()
+
+# %%
+df_train.isna().sum()
+
+# %%
+df_test.info()
+
+# %%
+df_test.isna().sum()
