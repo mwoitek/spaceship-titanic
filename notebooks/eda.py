@@ -806,6 +806,11 @@ df_dest.get_column("UniqueDestinations").value_counts(sort=True)
 
 # %%
 # Use Group data to fill some missing Destination values
+
+# Missing values BEFORE
+df_train.get_column("Destination").is_null().sum()
+
+# %%
 groups = df_dest.filter(pl.col("UniqueDestinations").eq(1)).get_column("Group")
 del df_dest
 
@@ -831,6 +836,10 @@ df_train = (
 del df_3
 
 df_train.head(10)
+
+# %%
+# Missing values AFTER
+df_train.get_column("Destination").is_null().sum()
 
 # %%
 # Number of passengers by destination
@@ -1506,11 +1515,30 @@ df_train.select(["Group", "Surname"]).drop_nulls().group_by("Group").agg(
 ).value_counts(sort=True)
 
 # %%
-# TODO: Do something interesting with this
-vip_surnames = (
-    df_train.select(["VIP", "Surname"]).drop_nulls().filter(pl.col("VIP")).get_column("Surname").unique()
+# Count encoding for Surname
+surname_counts = df_train.get_column("Surname").drop_nulls().value_counts().rename({"count": "SurnameCount"})
+df_train = df_train.join(surname_counts, on="Surname", how="left")
+del surname_counts
+# df_train.head(20)
+
+# %%
+# Visualize count encoding
+fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+sns.violinplot(
+    df_train.select(["SurnameCount", "Transported"]).drop_nulls(),
+    x="Transported",
+    y="SurnameCount",
+    ax=ax,
 )
-vip_surnames.head()
+ax.set_title("Violinplots of SurnameCount")
+plt.show()
+
+# %%
+# Passengers with the same surname are from the same planet
+df_train.select(["Surname", "HomePlanet"]).drop_nulls().group_by("Surname").agg(
+    pl.col("HomePlanet").n_unique().alias("UniqueHomePlanets")
+).get_column("UniqueHomePlanets").eq(1).all()
 
 # %%
 
