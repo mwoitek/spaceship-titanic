@@ -1039,6 +1039,40 @@ for n_bins, strategy in product([3, 4, 5], ["uniform", "quantile", "kmeans"]):
 df_train.get_column("VIP").drop_nulls().value_counts(sort=True)
 
 # %%
+# No VIP passenger is from Earth
+df_train.select(["VIP", "HomePlanet"]).drop_nulls().filter(pl.col("VIP")).get_column("HomePlanet").ne(
+    "Earth"
+).all()
+
+# %%
+df_test.select(["VIP", "HomePlanet"]).drop_nulls().filter(pl.col("VIP")).get_column("HomePlanet").ne(
+    "Earth"
+).all()
+
+# %%
+# Fix some of the missing values of VIP
+
+# Missing values BEFORE
+df_train.get_column("VIP").is_null().sum()
+
+# %%
+tmp_df = (
+    df_train.filter(pl.col("VIP").is_null(), pl.col("HomePlanet").eq("Earth"))
+    .select("PassengerId")
+    .with_columns(VIP=pl.lit(False))  # noqa: FBT003
+)
+df_train = (
+    df_train.join(tmp_df, on="PassengerId", how="left")
+    .with_columns(VIP=pl.col("VIP_right").fill_null(pl.col("VIP")))
+    .drop("VIP_right")
+)
+del tmp_df
+
+# %%
+# Missing values AFTER
+df_train.get_column("VIP").is_null().sum()
+
+# %%
 # Number of VIP passengers
 fig = plt.figure(figsize=(6.0, 6.0), layout="tight")
 ax = fig.add_subplot()
