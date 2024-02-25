@@ -237,6 +237,36 @@ del df_1, df_2, df_sur
 print(f"Training data: {df_train.HomePlanet.isna().sum()}")
 print(f"Test data: {df_test.HomePlanet.isna().sum()}")
 
+# %% [markdown]
+# ## Impute some missing values of `VIP`
+
+# %%
+# No VIP passenger is from Earth
+df_train.loc[df_train.VIP.notna() & (df_train.VIP == True) & df_train.HomePlanet.notna(), "HomePlanet"].ne(
+    "Earth"
+).all()
+
+# %%
+# Use HomePlanet to fill some missing VIP values
+
+# Number of missing values BEFORE
+print(f"Training data: {df_train.VIP.isna().sum()}")
+print(f"Test data: {df_test.VIP.isna().sum()}")
+
+# %%
+df_train.loc[
+    df_train.VIP.isna() & df_train.HomePlanet.notna() & (df_train.HomePlanet == "Earth"), "VIP"
+] = False
+df_test.loc[df_test.VIP.isna() & df_test.HomePlanet.notna() & (df_test.HomePlanet == "Earth"), "VIP"] = False
+
+# %%
+# Number of missing values AFTER
+print(f"Training data: {df_train.VIP.isna().sum()}")
+print(f"Test data: {df_test.VIP.isna().sum()}")
+
+# %% [markdown]
+# ## Encode `HomePlanet` and `Destination`
+
 # %%
 # Convert to ordinal integers
 enc = OrdinalEncoder().fit(df_train[["HomePlanet"]])
