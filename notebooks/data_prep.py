@@ -20,6 +20,7 @@
 # %%
 import warnings
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -500,7 +501,49 @@ del discretizer
 df_train = df_train.drop(columns="Age")
 df_test = df_test.drop(columns="Age")
 
+# %% [markdown]
+# ## Organize DataFrames and Save
+
 # %%
+cols_rm = [
+    "CabinNum",
+    # "Destination",
+    "Group",
+    "HomePlanet",
+    "Surname",
+]
+df_train = df_train.drop(columns=cols_rm)
+df_test = df_test.drop(columns=cols_rm)
+del cols_rm
+
+# %%
+cols_keep = [
+    "Alone",
+    "CompCntReduced",
+    "HomePlanetOrd",
+    "CryoSleep",
+    "CabinDeckOrd",
+    "CabinPort",
+    # "DestinationOrd",
+    "DiscretizedAge4",
+    "DiscretizedAge5",
+    "VIP",
+    "PosRoomService",
+    "PosFoodCourt",
+    "PosShoppingMall",
+    "PosSpa",
+    "PosVRDeck",
+    "PTTotalSpent",
+    "Transported",
+]
+df_train = df_train[cols_keep]
+cols_keep.pop()
+df_test = df_test[cols_keep]
+del cols_keep
+
+# %%
+df_train = cast(pd.DataFrame, df_train)
+df_test = cast(pd.DataFrame, df_test)
 
 # %%
 df_train.info()
@@ -513,3 +556,9 @@ df_test.info()
 
 # %%
 df_test.isna().sum()
+
+# %%
+df_train.to_csv(data_dir / "train_prep.csv", index=True)
+df_test.to_csv(data_dir / "test_prep.csv", index=True)
+
+# %%
