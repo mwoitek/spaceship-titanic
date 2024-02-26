@@ -269,14 +269,17 @@ print(f"Test data: {df_test.VIP.isna().sum()}")
 # ## Encode `HomePlanet` and `Destination`
 
 # %%
-# Convert to ordinal integers
+# Convert HomePlanet to ordinal integers
 enc = OrdinalEncoder().fit(df_train[["HomePlanet"]])
-# display(enc.categories_)
+enc.categories_
 
+# %%
 df_train["HomePlanetOrd"] = enc.transform(df_train[["HomePlanet"]]).flatten()
 df_test["HomePlanetOrd"] = enc.transform(df_test[["HomePlanet"]]).flatten()
-
 del enc
+
+# %%
+df_train.loc[["0002_01", "0003_01", "0009_01"], ["HomePlanet", "HomePlanetOrd"]]
 
 # %%
 # Consistency checks
@@ -286,6 +289,28 @@ assert df_train.loc[df_train.HomePlanet.notna(), "HomePlanetOrd"].notna().all()
 # %%
 assert df_test.loc[df_test.HomePlanet.isna(), "HomePlanetOrd"].isna().all()
 assert df_test.loc[df_test.HomePlanet.notna(), "HomePlanetOrd"].notna().all()
+
+# %%
+# Convert Destination to ordinal integers
+enc = OrdinalEncoder().fit(df_train[["Destination"]])
+enc.categories_
+
+# %%
+df_train["DestinationOrd"] = enc.transform(df_train[["Destination"]]).flatten()
+df_test["DestinationOrd"] = enc.transform(df_test[["Destination"]]).flatten()
+del enc
+
+# %%
+df_train.loc[["0008_01", "0005_01", "0001_01"], ["Destination", "DestinationOrd"]]
+
+# %%
+# Consistency checks
+assert df_train.loc[df_train.Destination.isna(), "DestinationOrd"].isna().all()
+assert df_train.loc[df_train.Destination.notna(), "DestinationOrd"].notna().all()
+
+# %%
+assert df_test.loc[df_test.Destination.isna(), "DestinationOrd"].isna().all()
+assert df_test.loc[df_test.Destination.notna(), "DestinationOrd"].notna().all()
 
 # %% [markdown]
 # ## More simple data imputation
@@ -507,7 +532,7 @@ df_test = df_test.drop(columns="Age")
 # %%
 cols_rm = [
     "CabinNum",
-    # "Destination",
+    "Destination",
     "Group",
     "HomePlanet",
     "Surname",
@@ -524,7 +549,7 @@ cols_keep = [
     "CryoSleep",
     "CabinDeckOrd",
     "CabinPort",
-    # "DestinationOrd",
+    "DestinationOrd",
     "DiscretizedAge4",
     "DiscretizedAge5",
     "VIP",
@@ -560,5 +585,3 @@ df_test.isna().sum()
 # %%
 df_train.to_csv(data_dir / "train_prep.csv", index=True)
 df_test.to_csv(data_dir / "test_prep.csv", index=True)
-
-# %%
