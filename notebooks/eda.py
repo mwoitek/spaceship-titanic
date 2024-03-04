@@ -31,7 +31,6 @@ import polars as pl
 import polars.selectors as cs
 import seaborn as sns
 import seaborn.objects as so
-from IPython.display import display
 from matplotlib.ticker import AutoMinorLocator, PercentFormatter
 from sklearn.preprocessing import KBinsDiscretizer, PowerTransformer
 from statsmodels.graphics.mosaicplot import mosaic
@@ -1573,9 +1572,3 @@ plt.show()
 df_train.select(["Surname", "HomePlanet"]).drop_nulls().group_by("Surname").agg(
     pl.col("HomePlanet").n_unique().alias("UniqueHomePlanets")
 ).get_column("UniqueHomePlanets").eq(1).all()
-
-# %%
-
-# %%
-with pl.Config(tbl_cols=df_train.width):
-    display(df_train.null_count())
