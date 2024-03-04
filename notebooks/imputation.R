@@ -61,11 +61,15 @@ df_train <- read_csv(
     PosSpa = col_factor(levels = c("True", "False"), ordered = FALSE),
     PosVRDeck = col_factor(levels = c("True", "False"), ordered = FALSE),
     PTTotalSpent = col_double(),
-    Transported = col_skip()
+    Transported = col_logical()
   )
 ) %>%
   column_to_rownames("PassengerId") %>%
   as.data.frame()
+
+# %%
+target <- df_train$Transported
+df_train$Transported <- NULL
 str(df_train)
 
 # %%
@@ -115,11 +119,15 @@ head(df_test, n = 10L)
 # ## Imputation with `missForest`
 
 # %%
+maxiter <- 10
+ntree <- 100
+
+# %%
 # Training data
 train_imp <- missForest(
   df_train,
-  maxiter = 10,
-  ntree = 100,
+  maxiter = maxiter,
+  ntree = ntree,
   variablewise = TRUE,
   verbose = TRUE
 )
@@ -142,8 +150,8 @@ tibble(
 # Test data
 test_imp <- missForest(
   df_test,
-  maxiter = 10,
-  ntree = 100,
+  maxiter = maxiter,
+  ntree = ntree,
   variablewise = TRUE,
   verbose = TRUE
 )
@@ -161,3 +169,77 @@ tibble(
   MissingValues = num_miss[mask],
   PFC = err[mask] # PFC = Proportion of falsely classified
 ) %>% column_to_rownames("Feature")
+
+# %% [markdown]
+# ## Save imputed datasets
+
+# %%
+# Training data
+tbl_train <- as_tibble(train_imp$ximp, rownames = NA) %>%
+  rownames_to_column(var = "PassengerId") %>%
+  mutate(
+    Alone = Alone == "True",
+    CompCntReduced = as.character(CompCntReduced),
+    HomePlanetOrd = HomePlanetOrd %>% as.character() %>% as.integer(),
+    CryoSleep = CryoSleep == "True",
+    CabinDeckOrd = CabinDeckOrd %>% as.character() %>% as.integer(),
+    CabinPort = CabinPort == "True",
+    DestinationOrd = DestinationOrd %>% as.character() %>% as.integer(),
+    DiscretizedAge4 = DiscretizedAge4 %>% as.character() %>% as.integer(),
+    DiscretizedAge5 = DiscretizedAge5 %>% as.character() %>% as.integer(),
+    VIP = VIP == "True",
+    PosRoomService = PosRoomService == "True",
+    PosFoodCourt = PosFoodCourt == "True",
+    PosShoppingMall = PosShoppingMall == "True",
+    PosSpa = PosSpa == "True",
+    PosVRDeck = PosVRDeck == "True"
+  ) %>%
+  add_column(Transported = target)
+str(tbl_train)
+
+# %%
+head(tbl_train, n = 10L)
+
+# %%
+write_csv(
+  tbl_train,
+  file.path(data_dir, "train_imputed.csv"),
+  quote = "needed",
+  escape = "backslash",
+  progress = FALSE
+)
+
+# %%
+# Test data
+tbl_test <- as_tibble(test_imp$ximp, rownames = NA) %>%
+  rownames_to_column(var = "PassengerId") %>%
+  mutate(
+    Alone = Alone == "True",
+    CompCntReduced = as.character(CompCntReduced),
+    HomePlanetOrd = HomePlanetOrd %>% as.character() %>% as.integer(),
+    CryoSleep = CryoSleep == "True",
+    CabinDeckOrd = CabinDeckOrd %>% as.character() %>% as.integer(),
+    CabinPort = CabinPort == "True",
+    DestinationOrd = DestinationOrd %>% as.character() %>% as.integer(),
+    DiscretizedAge4 = DiscretizedAge4 %>% as.character() %>% as.integer(),
+    DiscretizedAge5 = DiscretizedAge5 %>% as.character() %>% as.integer(),
+    VIP = VIP == "True",
+    PosRoomService = PosRoomService == "True",
+    PosFoodCourt = PosFoodCourt == "True",
+    PosShoppingMall = PosShoppingMall == "True",
+    PosSpa = PosSpa == "True",
+    PosVRDeck = PosVRDeck == "True"
+  )
+str(tbl_test)
+
+# %%
+head(tbl_test, n = 10L)
+
+# %%
+write_csv(
+  tbl_test,
+  file.path(data_dir, "test_imputed.csv"),
+  quote = "needed",
+  escape = "backslash",
+  progress = FALSE
+)
