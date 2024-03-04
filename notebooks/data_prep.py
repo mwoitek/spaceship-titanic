@@ -255,9 +255,9 @@ print(f"Training data: {df_train.VIP.isna().sum()}")
 print(f"Test data: {df_test.VIP.isna().sum()}")
 
 # %%
-df_train.loc[
-    df_train.VIP.isna() & df_train.HomePlanet.notna() & (df_train.HomePlanet == "Earth"), "VIP"
-] = False
+df_train.loc[df_train.VIP.isna() & df_train.HomePlanet.notna() & (df_train.HomePlanet == "Earth"), "VIP"] = (
+    False
+)
 df_test.loc[df_test.VIP.isna() & df_test.HomePlanet.notna() & (df_test.HomePlanet == "Earth"), "VIP"] = False
 
 # %%
@@ -374,7 +374,7 @@ del cols
 # %%
 # Power transformation of TotalSpent
 transformer = PowerTransformer().fit(df_train[["TotalSpent"]])
-print(transformer.lambdas_[0])
+transformer.lambdas_[0]
 
 # %%
 df_train = df_train.assign(PTTotalSpent=transformer.transform(df_train[["TotalSpent"]]).flatten()).drop(
@@ -406,12 +406,18 @@ df_test.loc[df_test.CabinDeck.notna() & df_test.CabinDeck.isin(["D", "A", "T"]),
 # %%
 # Convert to ordinal integers
 enc = OrdinalEncoder().fit(df_train[["CabinDeck"]])
-# display(enc.categories_)
+enc.categories_
 
+# %%
 df_train["CabinDeckOrd"] = enc.transform(df_train[["CabinDeck"]]).flatten()
 df_test["CabinDeckOrd"] = enc.transform(df_test[["CabinDeck"]]).flatten()
-
 del enc
+
+# %%
+df_train.loc[
+    ["0001_01", "0024_01", "0020_01", "0002_01", "0006_02", "0003_01"],
+    ["CabinDeck", "CabinDeckOrd"],
+]
 
 # %%
 # Consistency checks
@@ -489,8 +495,9 @@ df_test = df_test.drop(columns="CabinSide")
 discretizer = KBinsDiscretizer(n_bins=4, strategy="quantile", encode="ordinal", random_state=333).fit(
     df_train.loc[df_train.Age.notna(), ["Age"]]
 )
-# display(discretizer.bin_edges_)
+discretizer.bin_edges_
 
+# %%
 df_train["DiscretizedAge4"] = np.nan
 df_train.loc[df_train.Age.notna(), "DiscretizedAge4"] = discretizer.transform(
     df_train.loc[df_train.Age.notna(), ["Age"]]
@@ -508,8 +515,9 @@ del discretizer
 discretizer = KBinsDiscretizer(n_bins=5, strategy="quantile", encode="ordinal", random_state=333).fit(
     df_train.loc[df_train.Age.notna(), ["Age"]]
 )
-# display(discretizer.bin_edges_)
+discretizer.bin_edges_
 
+# %%
 df_train["DiscretizedAge5"] = np.nan
 df_train.loc[df_train.Age.notna(), "DiscretizedAge5"] = discretizer.transform(
     df_train.loc[df_train.Age.notna(), ["Age"]]
