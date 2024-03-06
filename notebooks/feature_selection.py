@@ -27,7 +27,10 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from IPython.display import display
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.inspection import permutation_importance
+from sklearn.model_selection import train_test_split
 
 # %%
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -55,8 +58,8 @@ df_train.info()
 assert df_train.isna().sum().eq(0).all()
 
 # %%
-y_train = df_train.pop("Transported")
-X_train = df_train
+X_train = df_train.drop(columns="Transported")
+y_train = df_train["Transported"]
 
 # %% [markdown]
 # ## Univariate feature selection
@@ -118,4 +121,97 @@ plt.show()
 
 display(scores_df)
 
+# %% [markdown]
+# ## Tree-based feature selection
+
 # %%
+# Prepare data
+X = df_train.drop(columns=["Alone", "DiscretizedAge4", "Transported"])
+y = df_train["Transported"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=333)
+
+# %%
+# Train classifier
+clf = RandomForestClassifier(random_state=333).fit(X_train, y_train)
+clf = cast(RandomForestClassifier, clf)
+
+# %% [markdown]
+# ### Feature importance based on mean decrease in impurity
+
+# %%
+# Get feature importances and the corresponding errors
+importances = cast(npt.ArrayLike, clf.feature_importances_)
+std = np.std([tree.feature_importances_ for tree in clf.estimators_], axis=0)
+std = cast(npt.ArrayLike, std)
+
+# %%
+# Visualize results
+# NOTE: Impurity-based feature importances can be misleading for high
+# cardinality features (many unique values).
+
+# Plot feature importances
+fig = plt.figure(figsize=(8.0, 7.0), layout="tight")
+ax = fig.add_subplot()
+ax.bar(clf.feature_names_in_, importances, yerr=std)
+ax.tick_params(axis="x", labelrotation=90.0)
+ax.set_xlabel("Feature")
+ax.set_ylabel("Mean decrease in impurity")
+ax.set_title("Feature importances using MDI")
+plt.show()
+
+# Display results table
+importances_df = pd.DataFrame(
+    data={
+        "Feature": clf.feature_names_in_,
+        "Importance": importances,
+        "Error": std,
+    }
+).set_index("Feature")
+display(importances_df)
+
+# %%
+# Same thing, but order by importance
+importances_df = importances_df.sort_values(by="Importance", ascending=False)
+
+fig = plt.figure(figsize=(8.0, 7.0), layout="tight")
+ax = fig.add_subplot()
+ax.bar(
+    importances_df.index,
+    importances_df["Importance"],
+    yerr=importances_df["Error"],
+)
+ax.tick_params(axis="x", labelrotation=90.0)
+ax.set_xlabel("Feature")
+ax.set_ylabel("Mean decrease in impurity")
+ax.set_title("Feature importances using MDI")
+plt.show()
+
+display(importances_df)
+
+# %% [markdown]
+# ### Feature importance based on feature permutation
+
+# %%
+result = permutation_importance(
+    clf,
+    X_test,
+    y_test,
+    n_repeats=10,
+    random_state=333,
+    n_jobs=2,
+)
+
+# %%
+fig = plt.figure(figsize=(8.0, 7.0), layout="tight")
+ax = fig.add_subplot()
+idx = np.argsort(result.importances_mean)[::-1]
+ax.bar(
+    clf.feature_names_in_[idx],
+    result.importances_mean[idx],
+    yerr=result.importances_std[idx],
+)
+ax.tick_params(axis="x", labelrotation=90.0)
+ax.set_xlabel("Feature")
+ax.set_ylabel("Mean accuracy decrease")
+ax.set_title("Feature importances using permutation on full model")
+plt.show()
