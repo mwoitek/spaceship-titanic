@@ -15,6 +15,7 @@ pyarrow = "*"
 statsmodels = "*"
 scikit-learn = "*"
 pandas-stubs = "*"
+scipy = "*"
 
 [dev-packages]
 
