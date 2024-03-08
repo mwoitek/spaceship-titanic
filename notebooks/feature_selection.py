@@ -27,8 +27,9 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from IPython.display import display
+from scipy.stats import chisquare
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest, chi2, mutual_info_classif
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 
@@ -64,7 +65,7 @@ y_train = df_train["Transported"]
 # %% [markdown]
 # ## Univariate feature selection
 #
-# Feature selection with chi-square for scoring:
+# ### Feature selection with chi-square for scoring
 
 # %%
 # This makes sense only for categorical variables. This is why `PTTotalSpent`
@@ -120,6 +121,60 @@ ax.set_title("Feature selection with chi-square scoring")
 plt.show()
 
 display(scores_df)
+
+# %%
+# How to reproduce the above results using scipy
+# Perform the same calculation for `Alone`
+observed = df_train.loc[df_train["Alone"], "Transported"].value_counts().sort_index()
+expected = df_train["Transported"].value_counts(normalize=True).sort_index() * observed.sum()
+chi2_res = chisquare(observed, f_exp=expected)
+
+# %%
+# p-value
+print(f"scipy       : {chi2_res.pvalue}")
+print(f"scikit-learn: {selector.pvalues_[0]}")  # pyright: ignore [reportOptionalSubscript]
+
+# %%
+# Test statistic
+print(f"scipy       : {chi2_res.statistic}")
+print(f"scikit-learn: {selector.scores_[0]}")
+
+# %% [markdown]
+# ### Feature selection with mutual information for scoring
+
+# %%
+selector = SelectKBest(
+    mutual_info_classif,
+    k="all",  # pyright: ignore [reportArgumentType]
+).fit(X_train, y_train)
+selector = cast(SelectKBest, selector)
+
+# %%
+# Normalized mutual information
+mi = cast(npt.ArrayLike, selector.scores_)
+mi /= np.max(mi)
+
+mi_df = (
+    pd.DataFrame(data={"Feature": selector.feature_names_in_, "MI": mi})
+    .set_index("Feature")
+    .sort_values(by="MI", ascending=False)
+)
+
+# %%
+# Visualize results
+
+# Plot mutual information
+fig = plt.figure(figsize=(8.0, 7.0), layout="tight")
+ax = fig.add_subplot()
+ax.bar(mi_df.index, mi_df["MI"])
+ax.tick_params(axis="x", labelrotation=90.0)
+ax.set_xlabel("Feature")
+ax.set_ylabel("Normalized mutual information")
+ax.set_title("Feature selection with mutual information scoring")
+plt.show()
+
+# Display mutual information table
+display(mi_df)
 
 # %% [markdown]
 # ## Tree-based feature selection
