@@ -20,6 +20,7 @@
 # %%
 import warnings
 from pathlib import Path
+from pprint import pprint
 from typing import cast
 
 import matplotlib.pyplot as plt
@@ -28,9 +29,10 @@ import numpy.typing as npt
 import pandas as pd
 from IPython.display import display
 from scipy.stats import chisquare
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, chi2, mutual_info_classif
 from sklearn.inspection import permutation_importance
+from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 
 # %%
@@ -175,6 +177,104 @@ plt.show()
 
 # Display mutual information table
 display(mi_df)
+
+# %% [markdown]
+# ### Compare model performance
+
+# %%
+feature_names = [
+    # "Alone",
+    "CompCntReduced",
+    "HomePlanetOrd",
+    "CryoSleep",
+    "CabinDeckOrd",
+    "CabinPort",
+    "DestinationOrd",
+    # "DiscretizedAge4",
+    "DiscretizedAge5",
+    "VIP",
+    "PosRoomService",
+    "PosFoodCourt",
+    "PosShoppingMall",
+    "PosSpa",
+    "PosVRDeck",
+    "PTTotalSpent",
+]
+X = df_train[feature_names]
+y = df_train["Transported"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=333)
+
+# %%
+feature_sets = []
+accs = []
+f1_scores = []
+
+max_features = len(feature_names)
+for num_features in range(1, max_features + 1):
+    selector = SelectKBest(mutual_info_classif, k=num_features).fit(X_train, y_train)
+    selector = cast(SelectKBest, selector)
+
+    idx = selector.get_support(indices=True)
+    feature_set = selector.feature_names_in_[idx]
+    feature_sets.append(feature_set)
+
+    X_train_new = selector.transform(X_train)
+    X_test_new = selector.transform(X_test)
+
+    clf = GradientBoostingClassifier(random_state=333).fit(X_train_new, y_train)
+    clf = cast(GradientBoostingClassifier, clf)
+
+    acc = clf.score(X_test_new, y_test)
+    accs.append(acc)
+
+    y_pred = clf.predict(X_test_new)
+    f1 = f1_score(y_test, y_pred, average="weighted")
+    f1_scores.append(f1)
+
+# %%
+metrics_df = pd.DataFrame(
+    data={
+        "NumFeatures": np.arange(1, max_features + 1),
+        "Accuracy": accs,
+        "F1Score": f1_scores,
+    },
+).set_index("NumFeatures")
+
+# %%
+fig = plt.figure(figsize=(8.0, 7.0), layout="tight")
+ax = fig.add_subplot()
+ks = np.arange(1, max_features + 1)
+ax.bar(ks, accs)
+ax.set_xticks(ks)
+ax.set_xlabel("Number of features")
+ax.set_ylabel("Accuracy")
+ax.set_title("Accuracy as a function of the number of features")
+plt.show()
+
+display(metrics_df[["Accuracy"]])
+
+# %%
+fig = plt.figure(figsize=(8.0, 7.0), layout="tight")
+ax = fig.add_subplot()
+ax.bar(ks, f1_scores)
+ax.set_xticks(ks)
+ax.set_xlabel("Number of features")
+ax.set_ylabel("F1 score")
+ax.set_title("F1 score as a function of the number of features")
+plt.show()
+
+display(metrics_df[["F1Score"]])
+
+# %%
+metrics_df = metrics_df.sort_values(by=["Accuracy", "F1Score"], ascending=[False, False])
+metrics_df
+
+# %%
+top_5 = metrics_df.iloc[:5, :]
+for i in top_5.index.to_numpy() - 1:
+    print(f"Number of features: {i + 1}")
+    print("Feature set:")
+    pprint(feature_sets[i].tolist())
 
 # %% [markdown]
 # ## Tree-based feature selection
