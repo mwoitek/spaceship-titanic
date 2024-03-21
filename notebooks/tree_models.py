@@ -68,6 +68,22 @@ df_train = df_train.set_index("PassengerId", verify_integrity=True)
 df_test = df_test.set_index("PassengerId", verify_integrity=True)
 
 # %% [markdown]
+# ## New features from `Cabin`
+
+# %%
+# CabinDeck, CabinNum and CabinSide
+df_train = df_train.join(
+    df_train["Cabin"]
+    .str.split("/", expand=True)
+    .rename(columns={0: "CabinDeck", 1: "CabinNum", 2: "CabinSide"})
+)
+df_test = df_test.join(
+    df_test["Cabin"]
+    .str.split("/", expand=True)
+    .rename(columns={0: "CabinDeck", 1: "CabinNum", 2: "CabinSide"})
+)
+
+# %% [markdown]
 # ## Using the `Name` column
 
 # %%
@@ -124,6 +140,55 @@ df_test.loc[df_3.index, "HomePlanet"] = df_3["HomePlanet"]
 del df_1, df_2, df_3, query
 
 # %% [markdown]
+# Passengers that belong to the same group were on the same side of the spaceship:
+
+# %%
+assert (
+    df_train[df_train["CabinSide"].notna()]
+    .groupby(by="Group")
+    .agg({"CabinSide": "nunique"})
+    .eq(1)
+    .all(axis=None)
+)
+assert (
+    df_test[df_test["CabinSide"].notna()]
+    .groupby(by="Group")
+    .agg({"CabinSide": "nunique"})
+    .eq(1)
+    .all(axis=None)
+)
+
+# %% [markdown]
+# Fill some missing `CabinSide` values using group data:
+
+# %%
+# Training data
+df_1 = (
+    df_train.query("GroupSize > 1 and CabinSide.notna()")
+    .groupby("Group")
+    .agg({"CabinSide": "first"})
+    .reset_index()
+)
+query = "GroupSize > 1 and Group in @df_1.Group and CabinSide.isna()"
+df_2 = df_train.query(query).loc[:, ["Group"]].reset_index()
+df_3 = df_2.merge(df_1, on="Group").drop(columns="Group").set_index("PassengerId")
+df_train.loc[df_3.index, "CabinSide"] = df_3["CabinSide"]
+del df_1, df_2, df_3
+
+# %%
+# Test data
+df_1 = (
+    df_test.query("GroupSize > 1 and CabinSide.notna()")
+    .groupby("Group")
+    .agg({"CabinSide": "first"})
+    .reset_index()
+)
+df_2 = df_test.query(query).loc[:, ["Group"]].reset_index()
+df_3 = df_2.merge(df_1, on="Group").drop(columns="Group").set_index("PassengerId")
+df_test.loc[df_3.index, "CabinSide"] = df_3["CabinSide"]
+del df_1, df_2, df_3, query
+
+# %% [markdown]
 # Passengers with the same surname are from the same planet:
 
 # %%
@@ -174,5 +239,86 @@ df_1 = df_test.query(query).loc[:, ["Surname"]].reset_index()
 df_2 = df_1.merge(df_sur, on="Surname").drop(columns="Surname").set_index("PassengerId")
 df_test.loc[df_2.index, "HomePlanet"] = df_2["HomePlanet"]
 del df_1, df_2, df_sur, query
+
+# %% [markdown]
+# No VIP passenger is from Earth:
+
+# %%
+query = "VIP.notna() and VIP == True and HomePlanet.notna()"
+assert df_train.query(query).HomePlanet.ne("Earth").all()
+assert df_test.query(query).HomePlanet.ne("Earth").all()
+del query
+
+# %% [markdown]
+# Impute some missing values of `VIP`:
+
+# %%
+# Training data
+query = "VIP.isna() and HomePlanet.notna() and HomePlanet == 'Earth'"
+idx = df_train.query(query).index
+df_train.loc[idx, "VIP"] = False
+
+# %%
+# Test data
+idx = df_test.query(query).index
+df_test.loc[idx, "VIP"] = False
+del idx, query
+
+# %% [markdown]
+# Dealing with the "money columns":
+
+# %%
+# All medians equal zero
+money_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+assert df_train[money_cols].median().eq(0.0).all()
+assert df_test[money_cols].median().eq(0.0).all()
+
+# %%
+# Fill missing values with zeros (medians)
+df_train.loc[:, money_cols] = df_train[money_cols].fillna(0.0)
+df_test.loc[:, money_cols] = df_test[money_cols].fillna(0.0)
+
+# %%
+# Add `TotalSpent` column
+df_train["TotalSpent"] = df_train[money_cols].agg("sum", axis=1)
+df_test["TotalSpent"] = df_test[money_cols].agg("sum", axis=1)
+del money_cols
+
+# %% [markdown]
+# Passengers who spent money were NOT in cryo sleep:
+
+# %%
+assert not df_train.query("TotalSpent > 0 and CryoSleep.notna()").CryoSleep.any()
+assert not df_test.query("TotalSpent > 0 and CryoSleep.notna()").CryoSleep.any()
+
+# %% [markdown]
+# Fill some missing `CryoSleep` values based on `TotalSpent`:
+
+# %%
+df_train.loc[df_train["CryoSleep"].isna() & df_train["TotalSpent"].gt(0.0), "CryoSleep"] = False
+df_test.loc[df_test["CryoSleep"].isna() & df_test["TotalSpent"].gt(0.0), "CryoSleep"] = False
+
+# %% [markdown]
+# ## Missing values that remain
+
+# %%
+feats = ["HomePlanet", "CryoSleep", "Destination", "Age", "VIP", "CabinDeck", "CabinSide"]
+df_miss = df_train.isna().sum().rename("Number").to_frame().rename_axis("Feature", axis=0)
+df_miss = df_miss[df_miss["Number"] > 0].loc[feats, :]
+df_miss = df_miss.assign(Percentage=(100.0 * df_miss["Number"] / df_train.shape[0]).round(2)).sort_values(
+    by="Percentage", ascending=False
+)
+df_miss
+
+# %%
+df_miss = df_test.isna().sum().rename("Number").to_frame().rename_axis("Feature", axis=0)
+df_miss = df_miss[df_miss["Number"] > 0].loc[feats, :]
+df_miss = df_miss.assign(Percentage=(100.0 * df_miss["Number"] / df_test.shape[0]).round(2)).sort_values(
+    by="Percentage", ascending=False
+)
+df_miss
+
+# %%
+del df_miss, feats
 
 # %%
