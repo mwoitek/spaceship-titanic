@@ -21,7 +21,14 @@
 import warnings
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from IPython.display import display
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder
 
 # %%
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -320,5 +327,92 @@ df_miss
 
 # %%
 del df_miss, feats
+
+# %% [markdown]
+# ## Encode categorical features
+
+# %%
+cat_feats = ["HomePlanet", "CabinDeck", "CabinSide", "Destination"]
+enc = OrdinalEncoder().fit(df_train[cat_feats])
+df_train.loc[:, cat_feats] = enc.transform(df_train[cat_feats])
+df_test.loc[:, cat_feats] = enc.transform(df_test[cat_feats])
+del cat_feats
+
+# %% [markdown]
+# ## Feature selection
+
+# %%
+feature_names = [
+    "GroupSize",
+    "HomePlanet",
+    "CryoSleep",
+    "CabinDeck",
+    "CabinSide",
+    "Destination",
+    "Age",
+    "VIP",
+    "RoomService",
+    "FoodCourt",
+    "ShoppingMall",
+    "Spa",
+    "VRDeck",
+    "TotalSpent",
+]
+X = df_train[feature_names]
+y = df_train["Transported"]
+
+# %%
+max_features = len(feature_names)
+feature_sets = []
+
+for num_features in range(1, max_features + 1):
+    idx_1 = X[X.notna().all(axis=1)].index
+    selector = SelectKBest(mutual_info_classif, k=num_features).fit(X.loc[idx_1, :], y.loc[idx_1])
+
+    idx_2 = selector.get_support(indices=True)
+    feature_set = selector.feature_names_in_[idx_2].tolist()
+    feature_sets.append(feature_set)
+
+# %% [markdown]
+# ## Tree models
+
+# %%
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.2, random_state=0)
+
+# %% [markdown]
+# ### Random Forest
+# Accuracy as a function of the number of features:
+
+# %%
+accs = []
+
+for feature_set in feature_sets:
+    X_train_new = X_train[feature_set]
+    X_test_new = X_test[feature_set]
+    clf = RandomForestClassifier(random_state=0).fit(X_train_new, y_train)
+    acc = clf.score(X_test_new, y_test)
+    accs.append(acc)
+
+df_accs = pd.DataFrame(
+    data={
+        "NumFeatures": np.arange(1, max_features + 1),
+        "Accuracy": accs,
+        "FeatureSet": feature_sets,
+    }
+).set_index("NumFeatures")
+
+# %%
+fig = plt.figure(figsize=(9.0, 6.0), layout="tight")
+ax = fig.add_subplot()
+ax.bar(df_accs.index, df_accs["Accuracy"])
+ax.bar_label(ax.containers[0], fmt="%.3f")  # pyright: ignore [reportArgumentType]
+ax.set_xticks(df_accs.index)
+ax.set_xlabel("Number of features")
+ax.set_ylabel("Accuracy")
+ax.set_title("Accuracy as a function of the number of features")
+plt.show()
+
+with pd.option_context("display.max_colwidth", None):
+    display(df_accs)
 
 # %%
