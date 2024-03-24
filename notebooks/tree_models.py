@@ -27,7 +27,7 @@ import pandas as pd
 from IPython.display import display
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.preprocessing import OrdinalEncoder
 
 # %%
@@ -363,11 +363,12 @@ y = df_train["Transported"]
 
 # %%
 max_features = len(feature_names)
+score_func = lambda X, y: mutual_info_classif(X, y, random_state=0)
 feature_sets = []
 
 for num_features in range(1, max_features + 1):
     idx_1 = X[X.notna().all(axis=1)].index
-    selector = SelectKBest(mutual_info_classif, k=num_features).fit(X.loc[idx_1, :], y.loc[idx_1])
+    selector = SelectKBest(score_func=score_func, k=num_features).fit(X.loc[idx_1, :], y.loc[idx_1])
 
     idx_2 = selector.get_support(indices=True)
     feature_set = selector.feature_names_in_[idx_2].tolist()
@@ -375,23 +376,33 @@ for num_features in range(1, max_features + 1):
 
 # %% [markdown]
 # ## Tree models
-
-# %%
-X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.2, random_state=0)
-
-# %% [markdown]
 # ### Random Forest
 # Accuracy as a function of the number of features:
 
 # %%
 accs = []
+cv = StratifiedKFold(shuffle=True, random_state=0)
+rf_params = {
+    "n_estimators": 200,
+    "criterion": "entropy",
+    "class_weight": "balanced_subsample",
+    "random_state": 0,
+}
 
 for feature_set in feature_sets:
-    X_train_new = X_train[feature_set]
-    X_test_new = X_test[feature_set]
-    clf = RandomForestClassifier(random_state=0).fit(X_train_new, y_train)
-    acc = clf.score(X_test_new, y_test)
-    accs.append(acc)
+    cv_accs = []
+    X_new = X[feature_set]
+
+    for train_idx, test_idx in cv.split(X_new, y):
+        X_train, X_test = X_new.iloc[train_idx, :], X_new.iloc[test_idx, :]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+        rf = RandomForestClassifier(**rf_params).fit(X_train, y_train)
+        acc = rf.score(X_test, y_test)
+        cv_accs.append(acc)
+
+    mean_acc = np.mean(cv_accs)
+    accs.append(mean_acc)
 
 df_accs = pd.DataFrame(
     data={
@@ -402,9 +413,14 @@ df_accs = pd.DataFrame(
 ).set_index("NumFeatures")
 
 # %%
+idx_max = int(df_accs["Accuracy"].idxmax())
+
+# %%
 fig = plt.figure(figsize=(9.0, 6.0), layout="tight")
 ax = fig.add_subplot()
-ax.bar(df_accs.index, df_accs["Accuracy"])
+colors = ["#2f4f4f"] * df_accs.shape[0]
+colors[idx_max - 1] = "#6039b2"
+ax.bar(df_accs.index, df_accs["Accuracy"], color=colors)
 ax.bar_label(ax.containers[0], fmt="%.3f")  # pyright: ignore [reportArgumentType]
 ax.set_xticks(df_accs.index)
 ax.set_xlabel("Number of features")
@@ -414,5 +430,38 @@ plt.show()
 
 with pd.option_context("display.max_colwidth", None):
     display(df_accs)
+
+# %% [markdown]
+# Find optimal model:
+
+# %%
+feature_names = df_accs.loc[idx_max, "FeatureSet"]
+feature_names
+
+# %%
+X = df_train[feature_names]
+
+# %%
+rf = RandomForestClassifier(**rf_params)
+param_grid = {
+    "max_depth": [8, 11, 12, 13, 14],
+    "min_samples_split": [13, 17, 18, 19, 20],
+    "min_samples_leaf": [5, 6, 7, 14, 20],
+}
+
+# %%
+grid_search = GridSearchCV(rf, param_grid=param_grid, scoring="accuracy", n_jobs=3).fit(X, y)
+
+# %%
+cv_results = (
+    pd.DataFrame(grid_search.cv_results_)
+    .drop(columns=["mean_fit_time", "std_fit_time", "mean_score_time", "std_score_time", "params"])
+    .set_index("rank_test_score")
+    .sort_index()
+)
+cv_results.head(10)
+
+# %%
+grid_search.best_params_
 
 # %%
