@@ -20,10 +20,12 @@
 # %%
 import warnings
 from pathlib import Path
+from urllib.parse import urljoin
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import requests
 from IPython.display import display
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
@@ -34,11 +36,43 @@ from sklearn.preprocessing import OrdinalEncoder
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 # %% [markdown]
-# ## Read data
+# ## Download data (if necessary)
 
 # %%
 data_dir = Path.cwd().parent / "input" / "spaceship-titanic"
-assert data_dir.exists(), f"directory doesn't exist: {data_dir}"
+if not data_dir.exists():
+    data_dir.mkdir(parents=True)
+
+
+# %%
+def download_file(base_url: str, file_name: str) -> None:
+    file_path = data_dir / file_name
+    if file_path.exists():
+        print(f"File {file_name} already exists. Nothing to do.")
+        return
+
+    url = urljoin(base_url, file_name)
+    response = requests.get(url, stream=True)  # noqa: S113
+    if response.status_code != 200:
+        print(f"Failed to download file {file_name}")
+        return
+
+    with file_path.open("wb") as file:
+        for chunk in response.iter_content(chunk_size=1024):
+            file.write(chunk)
+
+
+# %%
+# Training data
+base_url = "https://raw.githubusercontent.com/mwoitek/spaceship-titanic/master/input/spaceship-titanic"
+download_file(base_url, "train.csv")
+
+# %%
+# Test data
+download_file(base_url, "test.csv")
+
+# %% [markdown]
+# ## Read data
 
 # %%
 # Training data
