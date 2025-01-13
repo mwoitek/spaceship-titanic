@@ -4,20 +4,20 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+ipython = "*"
+matplotlib = "*"
+notebook = "*"
 numpy = "*"
 pandas = "*"
-polars = "*"
-matplotlib = "*"
-seaborn = "*"
-notebook = "*"
-jupytext = "*"
-pyarrow = "*"
-statsmodels = "*"
-scikit-learn = "*"
 pandas-stubs = "*"
+polars = "*"
+pyarrow = "*"
+scikit-learn = "*"
 scipy = "*"
+seaborn = "*"
+statsmodels = "*"
 
 [dev-packages]
+jupytext = "*"
 
 [requires]
-python_version = "3.11"
