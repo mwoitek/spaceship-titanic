@@ -39,6 +39,7 @@ select = [
   "TRY201",
   "UP",
 ]
+ignore = ["B018"]
 
 [tool.ruff.lint.isort]
 case-sensitive = true
