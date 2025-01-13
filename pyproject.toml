@@ -1,23 +1,26 @@
 [tool.pyright]
-useLibraryCodeForTypes = true
 analyzeUnannotatedFunctions = false
 reportUnnecessaryCast = "information"
-reportUnusedExpression = false
 reportUnnecessaryTypeIgnoreComment = "information"
+reportUnusedExpression = false
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+line-length = 100
+target-version = "py313"
 unsafe-fixes = false
 
 [tool.ruff.lint]
 select = [
   "A",
+  "B",
   "C401",
   "C417",
+  "D205",
+  "D209",
   "E741",
   "EM",
-  # "F401",
   "F841",
   "FBT",
   "G004",
