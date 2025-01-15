@@ -4,11 +4,13 @@
 
 # %%
 from pathlib import Path
+from typing import cast
 
 import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
 from IPython.display import display
+from matplotlib.container import BarContainer
 from matplotlib.ticker import AutoMinorLocator, PercentFormatter
 
 # %%
@@ -47,7 +49,8 @@ with pl.Config(tbl_cols=df_train.width):
 # It's important to know if we have a balanced dataset or not
 fig, ax = plt.subplots()
 sns.countplot(df_train, x="Transported", order=[True, False], ax=ax)
-ax.bar_label(ax.containers[0])  # pyright: ignore [reportArgumentType]
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container)
 ax.set_title("Transported: Is the dataset balanced?")
 ax.set_ylabel("Count")
 ax.yaxis.set_minor_locator(AutoMinorLocator(4))
@@ -57,7 +60,8 @@ plt.show()
 # Same thing, but show percentages
 fig, ax = plt.subplots()
 sns.countplot(df_train, x="Transported", order=[True, False], stat="percent", ax=ax)
-ax.bar_label(ax.containers[0], fmt="%.2f%%")  # pyright: ignore [reportArgumentType]
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container, fmt="%.2f%%")
 ax.set_title("Transported: Is the dataset balanced?")
 ax.set_ylabel("Percentage")
 ax.yaxis.set_major_formatter(PercentFormatter())
@@ -92,7 +96,7 @@ df_groups = (
     .rename({"len": "GroupSize"})
     .with_columns(
         CompanionCount=pl.col("GroupSize").sub(1),
-        Alone=pl.col("GroupSize").eq(1).cast(pl.Int8),
+        Alone=pl.col("GroupSize").eq(1).cast(pl.UInt8),
     )
     .drop("GroupSize")
 )
@@ -105,5 +109,99 @@ df_train = df_train.select(cols)
 # %xdel cols
 display(df_train.select(["PassengerId", "Group", "CompanionCount", "Alone"]).head(10))
 
+# %% [markdown]
+# ### Visualizing `Alone`
+
 # %%
-# HERE
+# Number of people traveling alone
+fig, ax = plt.subplots()
+sns.countplot(df_train, x="Alone", order=[1, 0], ax=ax)
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container)
+ax.set_title("Traveling alone?")
+ax.set_xticks(ax.get_xticks())  # seems useless but silences a warning
+ax.set_xticklabels(["Yes", "No"])
+ax.set_xlabel("")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+plt.show()
+
+# %%
+# Relationship with the target variable
+fig, ax = plt.subplots(figsize=(8.0, 6.0))
+sns.countplot(df_train, x="Alone", order=[1, 0], hue="Transported", ax=ax)
+for container in ax.containers:
+    container = cast(BarContainer, container)
+    ax.bar_label(container)
+ax.set_title("Relationship between Alone and Transported")
+ax.set_xticks(ax.get_xticks())  # seems useless but silences a warning
+ax.set_xticklabels(["Yes", "No"])
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+plt.show()
+
+# %% [markdown]
+# ### Visualizing `CompanionCount`
+
+# %%
+# Unique values
+display(df_train.get_column("CompanionCount").unique())
+
+# %%
+# Number of companions for those who had company
+fig, ax = plt.subplots(figsize=(8.0, 6.0))
+sns.countplot(
+    df_train.filter(pl.col("CompanionCount").gt(0)),
+    x="CompanionCount",
+    order=list(range(1, 8)),
+    ax=ax,
+)
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container)
+ax.set_title("Number of companions for those who had company")
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+plt.show()
+
+# %%
+# Relationship with the target variable
+fig, ax = plt.subplots(figsize=(10.0, 6.0))
+sns.countplot(
+    df_train,
+    x="CompanionCount",
+    order=list(range(8)),
+    hue="Transported",
+    ax=ax,
+)
+for container in ax.containers:
+    container = cast(BarContainer, container)
+    ax.bar_label(container)
+ax.set_title("Relationship between CompanionCount and Transported")
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+plt.show()
+
+# %%
+# Identifying infrequent counts
+fig, ax = plt.subplots(figsize=(8.0, 6.0))
+sns.countplot(
+    df_train,
+    x="CompanionCount",
+    order=list(range(8)),
+    stat="percent",
+    ax=ax,
+)
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container, fmt="%.2f%%")
+ax.axhline(y=5, color="red", linestyle="--")
+ax.set_title("Identifying infrequent companion counts")
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Percentage")
+ax.yaxis.set_major_formatter(PercentFormatter())
+ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+plt.show()
+
+# %%
+# plt.close("all")

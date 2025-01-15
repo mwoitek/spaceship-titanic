@@ -2,7 +2,7 @@
 analyzeUnannotatedFunctions = false
 reportUnnecessaryCast = "information"
 reportUnnecessaryTypeIgnoreComment = "information"
-reportUnusedExpression = false
+reportUnusedExpression = true
 typeCheckingMode = "basic"
 useLibraryCodeForTypes = true
 
@@ -39,7 +39,6 @@ select = [
   "TRY201",
   "UP",
 ]
-ignore = ["B018"]
 
 [tool.ruff.lint.isort]
 case-sensitive = true
