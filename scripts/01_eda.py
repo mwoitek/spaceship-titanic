@@ -263,5 +263,96 @@ ax.set_ylabel("Count")
 ax.yaxis.set_minor_locator(AutoMinorLocator(5))
 plt.show()
 
+# %% [markdown]
+# ## `HomePlanet`
+
+# %%
+# Unique values
+display(df_train.get_column("HomePlanet").unique())
+
+# %%
+# Do passengers who belong to the same group also come from the same home planet?
+df_train.select(["Group", "HomePlanet"]).drop_nulls().group_by("Group").agg(
+    UniquePlanets=pl.col("HomePlanet").n_unique()
+).get_column("UniquePlanets").eq(1).all()
+
+# %%
+# Identify rows that can be fixed
+# - `HomePlanet` is missing;
+# - Person is part of a group.
+df_1 = df_train.filter(pl.col("HomePlanet").is_null(), pl.col("Alone").eq(0)).select(
+    ["PassengerId", "Group"]
+)
+df_2 = (
+    df_train.filter(
+        pl.col("HomePlanet").is_not_null(),
+        pl.col("Group").is_in(df_1.get_column("Group").unique()),
+    )
+    .select(["Group", "HomePlanet"])
+    .unique()
+)
+df_3 = df_1.join(df_2, on="Group", how="inner").select(["PassengerId", "HomePlanet"])
+# %xdel df_1
+# %xdel df_2
+display(df_3.head(10))
+
+# %%
+# Update DataFrame with new values of `HomePlanet`
+print(f"Current number of missing values: {df_train.get_column('HomePlanet').null_count()}")
+print(f"Number of rows that will be fixed: {df_3.height}")
+col_idx = df_train.columns.index("HomePlanet")
+df_train = (
+    df_train.join(df_3, on="PassengerId", how="left")
+    .with_columns(pl.col("HomePlanet_right").fill_null(pl.col("HomePlanet")))
+    .drop("HomePlanet")
+    .rename({"HomePlanet_right": "HomePlanet"})
+)
+# %xdel df_3
+print(f"Current number of missing values: {df_train.get_column('HomePlanet').null_count()}")
+cols = df_train.columns
+cols.insert(col_idx, cols.pop())
+# %xdel col_idx
+df_train = df_train.select(cols)
+# %xdel cols
+
+# %% [markdown]
+# ### Visualizing `HomePlanet`
+
+# %%
+# Number of passengers by home planet
+fig, ax = plt.subplots()
+sns.countplot(
+    df_train.filter(pl.col("HomePlanet").is_not_null()),
+    x="HomePlanet",
+    order=["Earth", "Europa", "Mars"],
+    ax=ax,
+)
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container)
+ax.set_title("Number of passengers by home planet")
+ax.set_xlabel("")
+ax.set_ylabel("Number of passengers")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+plt.show()
+
+# %%
+# Relationship with the target variable
+fig, ax = plt.subplots(figsize=(8.0, 6.0))
+sns.countplot(
+    df_train.filter(pl.col("HomePlanet").is_not_null()),
+    x="HomePlanet",
+    order=["Earth", "Europa", "Mars"],
+    hue="Transported",
+    ax=ax,
+)
+for container in ax.containers:
+    container = cast(BarContainer, container)
+    ax.bar_label(container)
+ax.set_title("Relationship between HomePlanet and Transported")
+ax.set_xlabel("")
+ax.set_ylabel("Number of passengers")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+plt.show()
+
 # %%
 # plt.close("all")
