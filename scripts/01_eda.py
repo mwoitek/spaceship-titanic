@@ -183,8 +183,12 @@ ax.set_ylabel("Count")
 ax.yaxis.set_minor_locator(AutoMinorLocator(5))
 plt.show()
 
+# %% [markdown]
+# ### `CompanionCount`: Dealing with infrequent counts
+
 # %%
 # Identifying infrequent counts
+percent_cutoff = 5
 fig, ax = plt.subplots(figsize=(8.0, 6.0))
 sns.countplot(
     df_train,
@@ -195,12 +199,68 @@ sns.countplot(
 )
 container = cast(BarContainer, ax.containers[0])
 ax.bar_label(container, fmt="%.2f%%")
-ax.axhline(y=5, color="red", linestyle="--")
+ax.axhline(y=percent_cutoff, color="red", linestyle="--")
 ax.set_title("Identifying infrequent companion counts")
 ax.set_xlabel("Number of companions")
 ax.set_ylabel("Percentage")
 ax.yaxis.set_major_formatter(PercentFormatter())
 ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+plt.show()
+
+# %%
+# Compute frequencies related to `CompanionCount`
+companion_freq = (
+    df_train.get_column("CompanionCount").value_counts(normalize=True).sort(by="CompanionCount")
+)
+display(companion_freq)
+
+# %%
+# Select rare values
+companion_rare = (
+    companion_freq.filter(pl.col("proportion") < percent_cutoff / 100)
+    .get_column("CompanionCount")
+    .to_list()
+)
+print(companion_rare)
+# %xdel companion_rare
+
+# %%
+# Combine infrequent counts into a single category
+df_train = df_train.with_columns(
+    CompCntReduced=pl.when(pl.col("CompanionCount").gt(2))
+    .then(pl.lit("3+"))
+    .otherwise(pl.col("CompanionCount").cast(pl.String))
+)
+cols = df_train.columns
+cols.insert(3, cols.pop())
+df_train = df_train.select(cols)
+# %xdel cols
+
+# Checking
+display(df_train.select(["CompanionCount", "CompCntReduced"]).head(10))
+display(
+    df_train.filter(pl.col("CompanionCount") > 2)
+    .select(["CompanionCount", "CompCntReduced"])
+    .head(10)
+)
+
+# %%
+# Relationship between `CompCntReduced` and `Transported`
+fig, ax = plt.subplots(figsize=(8.0, 6.0))
+sns.countplot(
+    df_train,
+    x="CompCntReduced",
+    order=["0", "1", "2", "3+"],
+    hue="Transported",
+    ax=ax,
+)
+for container in ax.containers:
+    container = cast(BarContainer, container)
+    ax.bar_label(container)
+ax.set_title("Relationship between CompCntReduced and Transported")
+ax.set_xlabel("Number of companions")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
 plt.show()
 
 # %%
