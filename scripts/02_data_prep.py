@@ -87,3 +87,85 @@ if VERBOSE:
 df_test = add_passengerid_features(df_test)
 if VERBOSE:
     display(df_test.head(10))
+
+# %% [markdown]
+# ## Encoding `CompanionCount`
+
+# %%
+cc_vals = list(range(8))
+assert df_train.get_column("CompanionCount").is_in(cc_vals).all()
+assert df_test.get_column("CompanionCount").is_in(cc_vals).all()
+# %xdel cc_vals
+
+
+# %%
+# Every count above 2 is considered to be the same
+def reduce_companioncount(df: pl.DataFrame) -> pl.DataFrame:
+    if "CompCntReduced" in df.columns:
+        return df
+
+    if "CompanionCount" not in df.columns:
+        msg = "Column `CompanionCount` has to be created first"
+        raise ValueError(msg)
+
+    df = df.with_columns(
+        CompCntReduced=pl.when(pl.col("CompanionCount").gt(2))
+        .then(pl.lit(3))
+        .otherwise(pl.col("CompanionCount"))
+        .cast(pl.UInt8)
+    )
+    cols = df.columns
+    cols.insert(3, cols.pop())
+    df = df.select(cols)
+
+    return df
+
+
+# %%
+# Frequency encoding
+def frequency_encode_companioncount(
+    df: pl.DataFrame,
+    freq: pl.DataFrame | None = None,
+) -> tuple[pl.DataFrame, pl.DataFrame | None]:
+    if "CompCntFreq" in df.columns:
+        return df, freq
+
+    if "CompanionCount" not in df.columns:
+        msg = "Column `CompanionCount` has to be created first"
+        raise ValueError(msg)
+
+    if freq is None:
+        freq = (
+            df.get_column("CompanionCount")
+            .value_counts(normalize=True, name="CompCntFreq")
+            .sort(by="CompanionCount")
+        )
+
+    df = df.join(freq, on="CompanionCount", how="left")
+    cols = df.columns
+    cols.insert(4, cols.pop())
+    df = df.select(cols)
+
+    return df, freq
+
+
+# %%
+# Training data: Run all encoding functions
+df_train = reduce_companioncount(df_train)
+df_train, companion_freq = frequency_encode_companioncount(df_train)
+
+# %%
+# Test data: Run all encoding functions
+df_test = reduce_companioncount(df_test)
+df_test, _ = frequency_encode_companioncount(df_test, companion_freq)
+
+# %%
+# %xdel companion_freq
+
+# %%
+
+# %%
+
+# %%
+
+# %%
