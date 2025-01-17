@@ -1,3 +1,5 @@
+# ruff: noqa: N806
+
 # %% [markdown]
 # # Spaceship Titanic: Data Preparation
 # ## Imports
@@ -5,11 +7,14 @@
 # %%
 import os
 from pathlib import Path
+from typing import cast
 
 import polars as pl
 from IPython.display import display
+from sklearn.preprocessing import TargetEncoder
 
 # %%
+RANDOM_STATE = 333
 VERBOSE = bool(int(os.environ.get("VERBOSE", "1")))
 
 # %% [markdown]
@@ -150,22 +155,74 @@ def frequency_encode_companioncount(
 
 
 # %%
+# Target encoding
+def target_encode_companioncount(
+    df: pl.DataFrame,
+    encoder: TargetEncoder | None = None,
+) -> tuple[pl.DataFrame, TargetEncoder | None]:
+    if "CompCntTgtEnc" in df.columns:
+        return df, encoder
+
+    if "CompanionCount" not in df.columns:
+        msg = "Column `CompanionCount` has to be created first"
+        raise ValueError(msg)
+
+    if encoder is None:
+        if "Transported" not in df.columns:
+            msg = "Cannot fit encoder without the target `Transported`"
+            raise ValueError(msg)
+        encoder = TargetEncoder(
+            categories=[list(range(8))],  # pyright: ignore
+            target_type="binary",
+            random_state=RANDOM_STATE,
+        )
+        encoder = cast(TargetEncoder, encoder.set_output(transform="polars"))
+        X = df.select("CompanionCount")
+        y = df.get_column("Transported")
+        X_enc = cast(pl.DataFrame, encoder.fit_transform(X, y))
+    else:
+        X = df.select("CompanionCount")
+        X_enc = cast(pl.DataFrame, encoder.transform(X))
+
+    X_enc = X_enc.rename({"CompanionCount": "CompCntTgtEnc"})
+    df = pl.concat([df, X_enc], how="horizontal")
+    cols = df.columns
+    cols.insert(cols.index("Alone"), cols.pop())
+    df = df.select(cols)
+
+    return df, encoder
+
+
+# %%
 # Training data: Run all encoding functions
 df_train = reduce_companioncount(df_train)
 df_train, companion_freq = frequency_encode_companioncount(df_train)
+df_train, companion_enc = target_encode_companioncount(df_train)
+
+if VERBOSE:
+    rows = 20
+    cols = ["CompanionCount", "CompCntReduced", "CompCntFreq", "CompCntTgtEnc"]
+    with pl.Config(tbl_rows=rows):
+        display(df_train.select(cols).head(rows))
+    # %xdel rows
+    # %xdel cols
 
 # %%
 # Test data: Run all encoding functions
 df_test = reduce_companioncount(df_test)
 df_test, _ = frequency_encode_companioncount(df_test, companion_freq)
+df_test, _ = target_encode_companioncount(df_test, companion_enc)
+
+if VERBOSE:
+    rows = 20
+    cols = ["CompanionCount", "CompCntReduced", "CompCntFreq", "CompCntTgtEnc"]
+    with pl.Config(tbl_rows=rows):
+        display(df_test.select(cols).head(rows))
+    # %xdel rows
+    # %xdel cols
 
 # %%
 # %xdel companion_freq
-
-# %%
-
-# %%
-
-# %%
+# %xdel companion_enc
 
 # %%
