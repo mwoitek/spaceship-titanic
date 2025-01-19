@@ -3,20 +3,26 @@
 # ## Imports
 
 # %%
+from decimal import Decimal
 from pathlib import Path
 from typing import cast
 
 import matplotlib.pyplot as plt
+import mpmath
+import numpy as np
 import polars as pl
 import seaborn as sns
 from IPython.display import display
 from matplotlib.container import BarContainer
 from matplotlib.ticker import AutoMinorLocator, PercentFormatter
+from scipy.stats import chi2_contingency
 
 # %%
 # matplotlib config
 plt.rcParams["figure.constrained_layout.use"] = True
 plt.rcParams["figure.figsize"] = (6.0, 6.0)
+
+mpmath.mp.dps = 50
 
 # %% [markdown]
 # ## Read data
@@ -78,7 +84,6 @@ df_train = df_train.with_columns(Group=pl.col("PassengerId").str.split("_").list
 cols = df_train.columns
 cols.insert(1, cols.pop())
 df_train = df_train.select(cols)
-# %xdel cols
 display(df_train.select(["PassengerId", "Group"]).head(10))
 
 # %%
@@ -101,12 +106,10 @@ df_groups = (
     .drop("GroupSize")
 )
 df_train = df_train.join(df_groups, on="Group", how="left")
-# %xdel df_groups
 cols = df_train.columns
 cols.insert(2, cols.pop())
 cols.insert(2, cols.pop())
 df_train = df_train.select(cols)
-# %xdel cols
 display(df_train.select(["PassengerId", "Group", "CompanionCount", "Alone"]).head(10))
 
 # %% [markdown]
@@ -184,6 +187,89 @@ ax.yaxis.set_minor_locator(AutoMinorLocator(5))
 plt.show()
 
 # %% [markdown]
+# ### `CompanionCount` and `Transported`: Independence test
+
+
+# %%
+# Create a contingency table with Polars
+def contingency_table(df: pl.DataFrame, row: str, col: str) -> pl.DataFrame:
+    if row not in df.columns:
+        msg = f"Column {row} does not exist"
+        raise ValueError(msg)
+    if col not in df.columns:
+        msg = f"Column {col} does not exist"
+        raise ValueError(msg)
+    tbl = (
+        df.select(["PassengerId", row, col])
+        .drop_nulls()
+        .pivot(col, index=row, aggregate_function="len")
+        .sort(by=row)
+    )
+    cols = sorted(tbl.columns[1:])
+    cols.insert(0, row)
+    return tbl.select(cols)
+
+
+# %%
+# Compute contingency table
+ct = contingency_table(df_train, row="Transported", col="CompanionCount")
+with pl.Config(tbl_cols=ct.width):
+    display(ct)
+
+# %%
+# Compute expected frequencies
+obs_vals = ct.select(ct.columns[1:]).to_numpy()
+row_sum = np.sum(obs_vals, keepdims=True, axis=1)
+row_sum = np.tile(row_sum, (1, obs_vals.shape[1]))
+col_sum = np.sum(obs_vals, keepdims=True, axis=0)
+col_sum = np.tile(col_sum, (obs_vals.shape[0], 1))
+tbl_sum = np.sum(obs_vals)
+exp_vals = row_sum * col_sum / tbl_sum
+print(exp_vals)
+
+
+# %%
+# CDF for the chi-squared distribution
+def chi2_cdf(x: int | float, dof: int) -> Decimal:
+    x, dof = mpmath.mpf(x), mpmath.mpf(dof)
+    cdf = mpmath.gammainc(dof / 2, 0, x / 2, regularized=True)
+    return Decimal(str(cdf))
+
+
+# %%
+# Compute test statistic and p-value
+test_stat = np.sum((obs_vals - exp_vals) ** 2 / exp_vals)
+print(f"Test statistic: {test_stat}")
+dof = (obs_vals.shape[0] - 1) * (obs_vals.shape[1] - 1)
+pvalue = 1 - chi2_cdf(test_stat, dof)
+print(f"p-value: {pvalue}")
+
+# %%
+# Checking the above calculations
+res = chi2_contingency(obs_vals)
+print(f"Test statistic: {res.statistic}")
+print(f"p-value: {res.pvalue}")
+
+
+# %%
+# Chi-square test of independence
+def chi2_independence_test(df: pl.DataFrame, var1: str, var2: str, alpha: float = 0.05) -> None:
+    ct = contingency_table(df, row=var1, col=var2)
+    obs_vals = ct.select(ct.columns[1:]).to_numpy()
+    res = chi2_contingency(obs_vals)
+    print("Chi-square test of independence")
+    print(f"Null hypothesis: {var1} and {var2} are independent")
+    print(f"Test statistic: {res.statistic}")
+    print(f"p-value: {res.pvalue}")
+    decision = "REJECT" if res.pvalue <= alpha else "FAIL TO REJECT"
+    print(f"{decision} the null hypothesis (Significance level: {alpha})")
+
+
+# %%
+# Test the above function
+chi2_independence_test(df_train, "Transported", "CompanionCount")
+
+# %% [markdown]
 # ### `CompanionCount`: Dealing with infrequent counts
 
 # %%
@@ -222,7 +308,6 @@ companion_rare = (
     .to_list()
 )
 print(companion_rare)
-# %xdel companion_rare
 
 # %%
 # Combine infrequent counts into a single category
@@ -234,7 +319,6 @@ df_train = df_train.with_columns(
 cols = df_train.columns
 cols.insert(3, cols.pop())
 df_train = df_train.select(cols)
-# %xdel cols
 
 # Checking
 display(df_train.select(["CompanionCount", "CompCntReduced"]).head(10))
@@ -292,8 +376,6 @@ df_2 = (
     .unique()
 )
 df_3 = df_1.join(df_2, on="Group", how="inner").select(["PassengerId", "HomePlanet"])
-# %xdel df_1
-# %xdel df_2
 display(df_3.head(10))
 
 # %%
@@ -307,13 +389,10 @@ df_train = (
     .drop("HomePlanet")
     .rename({"HomePlanet_right": "HomePlanet"})
 )
-# %xdel df_3
 print(f"Current number of missing values: {df_train.get_column('HomePlanet').null_count()}")
 cols = df_train.columns
 cols.insert(col_idx, cols.pop())
-# %xdel col_idx
 df_train = df_train.select(cols)
-# %xdel cols
 
 # %% [markdown]
 # ### Visualizing `HomePlanet`
@@ -355,4 +434,4 @@ ax.yaxis.set_minor_locator(AutoMinorLocator(5))
 plt.show()
 
 # %%
-# plt.close("all")
+chi2_independence_test(df_train, "Transported", "HomePlanet")
