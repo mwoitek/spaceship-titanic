@@ -18,16 +18,16 @@ from matplotlib.ticker import AutoMinorLocator, PercentFormatter
 from scipy.stats import chi2_contingency
 
 # %%
-# matplotlib config
+# Configuring imports
+mpmath.mp.dps = 50
 plt.rcParams["figure.constrained_layout.use"] = True
 plt.rcParams["figure.figsize"] = (6.0, 6.0)
-
-mpmath.mp.dps = 50
 
 # %% [markdown]
 # ## Read data
 
 # %%
+# Directory containing the data
 data_dir = Path.cwd() / "data"
 assert data_dir.exists(), f"Directory doesn't exist: {data_dir}"
 
@@ -435,3 +435,96 @@ plt.show()
 
 # %%
 chi2_independence_test(df_train, "Transported", "HomePlanet")
+
+# %% [markdown]
+# ## `TotalSpent`
+
+# %%
+# Add `TotalSpent` column to DataFrame
+cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+df_train = df_train.with_columns(TotalSpent=pl.sum_horizontal(*cols))
+cols = df_train.columns
+cols.insert(cols.index("Name"), cols.pop())
+df_train = df_train.select(cols)
+assert df_train.get_column("TotalSpent").ge(0.0).all()
+display(df_train.select([*cols, "TotalSpent"]).head(10))
+
+# %% [markdown]
+# ## `CryoSleep`
+# ### Consistency tests
+
+# %%
+# For these tests, ignore missing values
+df_cryo = df_train.select(["CryoSleep", "TotalSpent"]).drop_nulls()
+display(df_cryo.head(10))
+
+# %%
+# Passengers who spent money were NOT in cryo sleep
+assert df_cryo.filter(pl.col("TotalSpent").gt(0.0)).get_column("CryoSleep").not_().all()
+
+# %%
+# Passengers who were in cryo sleep spent NO MONEY
+assert df_cryo.filter(pl.col("CryoSleep")).get_column("TotalSpent").eq(0.0).all()
+
+# %%
+# The converse is NOT true: Some passengers who spent no money were awake
+df_cryo.filter(pl.col("TotalSpent").eq(0.0)).get_column("CryoSleep").value_counts(sort=True)
+
+# %% [markdown]
+# ### Deal with some of the missing values
+
+# %%
+# Identify rows that can be fixed
+# Idea: A passenger is NOT in cryo sleep if he is spending money
+df_cryo = (
+    df_train.filter(pl.col("CryoSleep").is_null(), pl.col("TotalSpent").gt(0.0))
+    .with_columns(CryoSleep=pl.lit(False))  # noqa: FBT003
+    .select(["PassengerId", "CryoSleep", "TotalSpent"])
+)
+display(df_cryo.head(10))
+df_cryo = df_cryo.drop("TotalSpent")
+
+# %%
+# Fill some missing `CryoSleep` values based on `TotalSpent`
+print(f"Current number of missing values: {df_train.get_column('CryoSleep').null_count()}")
+print(f"Number of rows that will be fixed: {df_cryo.height}")
+df_train = (
+    df_train.join(df_cryo, on="PassengerId", how="left")
+    .with_columns(pl.col("CryoSleep_right").fill_null(pl.col("CryoSleep")))
+    .drop("CryoSleep")
+    .rename({"CryoSleep_right": "CryoSleep"})
+)
+print(f"Current number of missing values: {df_train.get_column('CryoSleep').null_count()}")
+cols = df_train.columns
+cols.insert(cols.index("Cabin"), cols.pop())
+df_train = df_train.select(cols)
+
+# %%
+# Check: Data is still consistent
+assert df_train.filter(pl.col("TotalSpent").gt(0.0)).get_column("CryoSleep").not_().all()
+
+# %% [markdown]
+# ### Visualizing `CryoSleep`
+
+# %%
+# Number of passengers in cryo sleep
+fig, ax = plt.subplots()
+sns.countplot(
+    df_train.filter(pl.col("CryoSleep").is_not_null()),
+    x="CryoSleep",
+    order=[False, True],
+    ax=ax,
+)
+container = cast(BarContainer, ax.containers[0])
+ax.bar_label(container)
+ax.set_title("In cryo sleep?")
+ax.set_xticks(ax.get_xticks())  # seems useless but silences a warning
+ax.set_xticklabels(["No", "Yes"])
+ax.set_xlabel("")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+plt.show()
+
+# %%
+
+# %%
