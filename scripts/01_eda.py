@@ -19,6 +19,7 @@ from matplotlib.container import BarContainer
 from matplotlib.text import Text
 from matplotlib.ticker import AutoMinorLocator, PercentFormatter
 from scipy.stats import chi2_contingency
+from statsmodels.graphics.factorplots import interaction_plot
 from statsmodels.graphics.mosaicplot import mosaic
 
 # %%
@@ -445,13 +446,13 @@ chi2_independence_test(df_train, "Transported", "HomePlanet")
 
 # %%
 # Add `TotalSpent` column to DataFrame
-cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
-df_train = df_train.with_columns(TotalSpent=pl.sum_horizontal(*cols))
+money_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+df_train = df_train.with_columns(TotalSpent=pl.sum_horizontal(*money_cols))
 cols = df_train.columns
 cols.insert(cols.index("Name"), cols.pop())
 df_train = df_train.select(cols)
 assert df_train.get_column("TotalSpent").ge(0.0).all()
-display(df_train.select([*cols, "TotalSpent"]).head(10))
+display(df_train.select([*money_cols, "TotalSpent"]).head(10))
 
 # %% [markdown]
 # ## `CryoSleep`
@@ -573,6 +574,65 @@ for text in text_iter:
     text.set_color("w")
     text.set_fontsize(20)
 ax.set_title("Relationship between CryoSleep and Alone")
+plt.show()
+
+# %%
+# Interaction plot: CryoSleep and Alone
+# NOTE: Parallel lines indicate NO INTERACTION
+fig, ax = plt.subplots()
+df_plot = df_train.filter(pl.col("CryoSleep").is_not_null()).select(
+    ["Alone", "CryoSleep", "Transported"]
+)
+interaction_plot(
+    x=df_plot.get_column("CryoSleep"),
+    trace=df_plot.get_column("Alone"),
+    response=df_plot.get_column("Transported"),
+    xlabel="In cryo sleep?",
+    ax=ax,
+)
+ax.set_title("Interaction plot: CryoSleep and Alone")
+ax.set_xticks([0, 1], labels=["No", "Yes"])
+ax.set_ylabel("Proportion of positive cases")
+handles, _ = ax.get_legend_handles_labels()
+ax.legend(handles, ["No", "Yes"], title="Alone?")
+plt.show()
+
+# %% [markdown]
+# #### `HomePlanet`
+
+# %%
+# Mosaic plot
+ct = contingency_table(df_train, "CryoSleep", "HomePlanet")
+ct_np = ct.select(ct.columns[1:]).to_numpy()
+x_labels = ct.columns[1:]
+y_labels = ["Awake", "Asleep"]
+data = {(x, y): ct_np[j, i] for j, y in enumerate(y_labels) for i, x in enumerate(x_labels)}
+fig, ax = plt.subplots(figsize=(7.0, 7.0))
+mosaic(data, labelizer=lambda k: data[k], ax=ax)
+text_iter = filter(lambda c: isinstance(c, Text) and c.get_text() != "", ax.get_children())
+text_iter = cast(Iterator[Text], text_iter)
+for text in text_iter:
+    text.set_color("w")
+    text.set_fontsize(20)
+ax.set_title("Relationship between CryoSleep and HomePlanet")
+plt.show()
+
+# %%
+# Interaction plot
+fig, ax = plt.subplots()
+df_plot = df_train.select(["HomePlanet", "CryoSleep", "Transported"]).drop_nulls()
+interaction_plot(
+    x=df_plot.get_column("CryoSleep"),
+    trace=df_plot.get_column("HomePlanet"),
+    response=df_plot.get_column("Transported"),
+    xlabel="In cryo sleep?",
+    ax=ax,
+)
+ax.set_title("Interaction plot: CryoSleep and HomePlanet")
+ax.set_xticks([0, 1], labels=["No", "Yes"])
+ax.set_ylabel("Proportion of positive cases")
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, title="Home planet")
 plt.show()
 
 # %%
