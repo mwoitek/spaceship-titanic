@@ -3,8 +3,10 @@
 # ## Imports
 
 # %%
+from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
+from pprint import pprint
 from typing import cast
 
 import matplotlib.pyplot as plt
@@ -14,8 +16,10 @@ import polars as pl
 import seaborn as sns
 from IPython.display import display
 from matplotlib.container import BarContainer
+from matplotlib.text import Text
 from matplotlib.ticker import AutoMinorLocator, PercentFormatter
 from scipy.stats import chi2_contingency
+from statsmodels.graphics.mosaicplot import mosaic
 
 # %%
 # Configuring imports
@@ -523,6 +527,52 @@ ax.set_xticklabels(["No", "Yes"])
 ax.set_xlabel("")
 ax.set_ylabel("Count")
 ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+plt.show()
+
+# %%
+# Relationship between `CryoSleep` and `Transported`
+fig, ax = plt.subplots()
+sns.countplot(
+    df_train.filter(pl.col("CryoSleep").is_not_null()),
+    x="CryoSleep",
+    order=[False, True],
+    hue="Transported",
+    ax=ax,
+)
+for container in ax.containers:
+    container = cast(BarContainer, container)
+    ax.bar_label(container)
+ax.set_title("Relationship between CryoSleep and Transported")
+ax.set_xticks(ax.get_xticks())
+ax.set_xticklabels(["No", "Yes"])
+ax.set_xlabel("In cryo sleep?")
+ax.set_ylabel("Count")
+ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+plt.show()
+
+# %% [markdown]
+# ### Relationship with other categorical variables
+# #### `Alone`
+
+# %%
+# Prepare data to create a mosaic plot
+ct = contingency_table(df_train, "CryoSleep", "Alone")
+ct_np = ct.select(ct.columns[1:]).to_numpy()
+x_labels = ["Accompanied", "Alone"]
+y_labels = ["Awake", "Asleep"]
+data = {(x, y): ct_np[j, i] for j, y in enumerate(y_labels) for i, x in enumerate(x_labels)}
+pprint(data)
+
+# %%
+# Create the mosaic plot
+fig, ax = plt.subplots(figsize=(7.0, 7.0))
+mosaic(data, labelizer=lambda k: data[k], ax=ax)
+text_iter = filter(lambda c: isinstance(c, Text) and c.get_text() != "", ax.get_children())
+text_iter = cast(Iterator[Text], text_iter)
+for text in text_iter:
+    text.set_color("w")
+    text.set_fontsize(20)
+ax.set_title("Relationship between CryoSleep and Alone")
 plt.show()
 
 # %%
